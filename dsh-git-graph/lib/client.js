@@ -283,14 +283,14 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * One row's merge elbow: branch off the commit lane horizontally at the
-     * crossover, then rounded corner down to the row bottom (parent color).
+     * One row's merge/split elbow: horizontal at the node's level, branching
+     * off the node's side, then rounded corner down to the row bottom.
      */
     function elbowSlice(x1, x2, color) {
       const dir = x2 > x1 ? 1 : -1
-      const yc = ROW_H * 0.72
+      const y = ROW_H / 2
       const r = Math.max(2, Math.min(CORNER_R, Math.abs(x2 - x1) / 2))
-      return `<path d="M ${x1} ${yc} L ${x2 - dir * r} ${yc} Q ${x2} ${yc} ${x2} ${yc + r} L ${x2} ${ROW_H}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`
+      return `<path d="M ${x1 + dir * NODE_R} ${y} L ${x2 - dir * r} ${y} Q ${x2} ${y} ${x2} ${y + r} L ${x2} ${ROW_H}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`
     }
 
     /** The graph slice (lane lines + node + elbow) for one commit row. */
@@ -308,7 +308,12 @@ window.__ModuleLoader__.load({
         const rp = rowOf.get(p)
         if (rp === undefined) return
         const pc = c.parentCols[pi]
-        if (pc !== c.col) parts.push(elbowSlice(cx(c.col), cx(pc), colorOf.get(p) ?? FALLBACK_COLOR))
+        if (pc !== c.col) {
+          // Split (first parent, branch-off) uses the commit's color; merge
+          // (later parents) uses the merged parent's color.
+          const color = pi === 0 ? (colorOf.get(c.hash) ?? FALLBACK_COLOR) : (colorOf.get(p) ?? FALLBACK_COLOR)
+          parts.push(elbowSlice(cx(c.col), cx(pc), color))
+        }
       })
       parts.push(`<circle cx="${cx(c.col)}" cy="${ROW_H / 2}" r="${NODE_R}" fill="${colorOf.get(c.hash) ?? FALLBACK_COLOR}" stroke="rgba(0,0,0,.35)" stroke-width="1"/>`)
       parts.push('</svg>')
