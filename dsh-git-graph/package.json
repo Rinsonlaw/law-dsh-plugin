@@ -17,9 +17,13 @@
       "platform": "web"
     }
   },
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  },
   "files": [
     "lib/index.js",
     "lib/git.js",
+    "lib/graph.js",
     "lib/client.js",
     "cordis.patch.yml",
     "README.md"

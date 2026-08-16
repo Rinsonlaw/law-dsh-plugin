@@ -31,9 +31,20 @@ DSH 的 Web 界面原本没有图形化的提交历史视图。`dsh-git-graph` �
 |---|---|---|
 | Host（Node 端） | `lib/git.js` | `spawn git` 构建提交 DAG、refs、提交详情与 diff |
 | Host（Node 端） | `lib/index.js` | 注册 `/gitgraph/api` 路由（`graph` / `commit`），含 CSRF 防护 |
-| Client（浏览器端） | `lib/client.js` | 泳道布局算法 + SVG 逐行渲染 + 面板 UI |
+| 共享渲染逻辑 | `lib/graph.js` | **唯一真源**：泳道布局、分支配色、SVG/HTML 生成、diff 高亮（纯函数，不依赖 React） |
+| Client（浏览器端） | `lib/client.js` | React 面板外壳（生成物，由构建脚本内联 `lib/graph.js`） |
 
 数据流：浏览器 `fetch('/gitgraph/api/graph')` → host 用 `git` 命令读取仓库 → 返回 JSON → 客户端做泳道布局并逐行渲染成 SVG。
+
+### 共享逻辑与构建
+
+`lib/graph.js` 是图渲染逻辑的唯一真源，`lib/client.js`（插件）和 `preview/preview.html`（离线预览）都从它生成，不再各自手写一份。修改图渲染逻辑后，只改 `lib/graph.js`，然后重新构建：
+
+```bash
+npm run build   # 等价于 node scripts/build.mjs
+```
+
+脚本会把 `lib/graph.js` 内联进 `src/client.template.js` 和 `src/preview.template.html`，生成 `lib/client.js` 与 `preview/preview.html`。
 
 ## 预览
 
