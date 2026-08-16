@@ -415,24 +415,40 @@ window.__ModuleLoader__.load({
     function apply(ctx) {
       appCtx = ctx
 
-      // 1) better-sidebar tab (best-effort; sidebar provides the chrome)
+      // 1) better-sidebar tab (best-effort; sidebar provides the chrome).
+      // better-sidebar's client may load after this plugin, so register both
+      // immediately (already available) AND deferred via ctx.inject (arrives
+      // later). A flag guards against double registration.
+      let tabRegistered = false
+      const registerTab = (betterSidebar) => {
+        if (tabRegistered) return
+        if (!betterSidebar || typeof betterSidebar.registerTab !== 'function') return
+        tabRegistered = true
+        const dispose = betterSidebar.registerTab({
+          id: 'git-graph',
+          title: 'Git Graph',
+          single: true,
+          order: 60,
+          component: (props) => h(GitGraphPanel, {
+            sessionId: props.scope?.sessionId,
+            initialCwd: props.scope?.cwd,
+          }),
+        })
+        ctx.effect(() => dispose, 'dsh-git-graph: better-sidebar tab')
+      }
+
       try {
-        const betterSidebar = ctx.get('betterSidebar')
-        if (betterSidebar && typeof betterSidebar.registerTab === 'function') {
-          const dispose = betterSidebar.registerTab({
-            id: 'git-graph',
-            title: 'Git Graph',
-            single: true,
-            order: 60,
-            component: (props) => h(GitGraphPanel, {
-              sessionId: props.scope?.sessionId,
-              initialCwd: props.scope?.cwd,
-            }),
-          })
-          ctx.effect(() => dispose, 'dsh-git-graph: better-sidebar tab')
+        registerTab(ctx.get('betterSidebar'))
+      } catch (error) {
+        console.warn('[dsh-git-graph] better-sidebar tab lookup failed:', error)
+      }
+
+      try {
+        if (typeof ctx.inject === 'function') {
+          ctx.inject(['betterSidebar'], (sctx) => { registerTab(sctx.betterSidebar) })
         }
       } catch (error) {
-        console.warn('[dsh-git-graph] better-sidebar tab registration failed:', error)
+        console.warn('[dsh-git-graph] better-sidebar deferred registration failed:', error)
       }
 
       // 2) footer toggle (always available, opens the floating overlay)
