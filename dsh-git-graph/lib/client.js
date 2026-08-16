@@ -57,7 +57,14 @@ window.__ModuleLoader__.load({
       '.gg-file .st.A{background:rgba(46,160,67,.2);color:#3fb950}',
       '.gg-file .st.D{background:rgba(248,81,73,.2);color:#f85149}',
       '.gg-file .st.M,.gg-file .st.R{background:rgba(210,153,34,.18);color:#e3b341}',
-      '.gg-diff{background:var(--dsw-alias-bg-layer-1,#1a1d24);border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.08));border-radius:8px;padding:8px 10px;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;line-height:16px;white-space:pre;color:var(--dsw-alias-label-secondary,#c9d1d9);max-height:420px}',
+      '.gg-diff{background:var(--dsw-alias-bg-layer-1,#1a1d24);border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.08));border-radius:8px;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:20px;max-height:420px}',
+      '.gg-diff .dl{display:block;white-space:pre;padding:0 12px;min-height:20px;box-sizing:border-box}',
+      '.gg-diff .dl-add{background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#3fb950) 15%,transparent);color:var(--dsw-alias-state-success-primary,#3fb950)}',
+      '.gg-diff .dl-del{background:color-mix(in srgb,var(--dsw-alias-state-error-primary,#f85149) 15%,transparent);color:var(--dsw-alias-state-error-primary,#f85149)}',
+      '.gg-diff .dl-hunk{background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#4c8dff) 12%,transparent);color:var(--dsw-alias-state-business-primary,#79b8ff);font-weight:600}',
+      '.gg-diff .dl-file{color:var(--dsw-alias-label-primary,#e6e6e6);font-weight:600}',
+      '.gg-diff .dl-meta{color:var(--dsw-alias-label-tertiary,#8b94a7)}',
+      '.gg-diff .dl-ctx{color:var(--dsw-alias-label-secondary,#c9d1d9)}',
       '.gg-empty{color:var(--dsw-alias-label-tertiary,#8b94a7);padding:12px 2px}',
       // footer toggle button
       '.gg-toggle{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.1));background:transparent;color:var(--dsw-alias-label-secondary,#c9d1d9);cursor:pointer}',
@@ -216,6 +223,26 @@ window.__ModuleLoader__.load({
           return h('code', { className: 'gg-inline-code', key: idx }, part.slice(1, -1))
         }
         return part
+      })
+    }
+
+    /** Classify one unified-diff line for syntax highlighting. */
+    function diffLineClass(line) {
+      if (line.startsWith('diff --git')) return 'dl-file'
+      if (line.startsWith('index ')) return 'dl-meta'
+      if (line.startsWith('---')) return 'dl-file'
+      if (line.startsWith('+++')) return 'dl-file'
+      if (line.startsWith('@@')) return 'dl-hunk'
+      if (line.startsWith('+')) return 'dl-add'
+      if (line.startsWith('-')) return 'dl-del'
+      if (line.startsWith('\\')) return 'dl-meta'
+      return 'dl-ctx'
+    }
+
+    /** Render a unified diff as per-line React elements with highlighting. */
+    function renderDiff(diff) {
+      return String(diff).replace(/\n+$/, '').split('\n').map((line, idx) => {
+        return h('div', { className: 'dl ' + diffLineClass(line), key: idx }, line.length > 0 ? line : '\u00a0')
       })
     }
 
@@ -461,7 +488,7 @@ window.__ModuleLoader__.load({
               detail.data.stats ? h('div', { className: 'gg-d-meta' }, esc(detail.data.stats)) : null,
               h('div', { className: 'gg-d-diff' },
                 h('h4', null, 'Diff'),
-                detail.data.diff ? h('pre', { className: 'gg-diff' }, detail.data.diff) : h('div', { className: 'gg-empty' }, 'No diff available.'),
+                detail.data.diff ? h('div', { className: 'gg-diff' }, renderDiff(detail.data.diff)) : h('div', { className: 'gg-empty' }, 'No diff available.'),
               ),
             ),
           ),
