@@ -43,6 +43,7 @@
     .detail h3 { margin: 0 0 2px; font-size: 15px; line-height: 22px; font-weight: 600; word-break: break-word; }
     .d-meta { font-size: 12px; color: #8b94a7; margin: 2px 0 10px; }
     .d-body { white-space: pre-wrap; font-size: 12.5px; line-height: 18px; color: #c9d1d9; margin: 0 0 12px; }
+    .d-body .inline-code { background: rgba(255,255,255,.08); color: #e6e6e6; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 1px 5px; border-radius: 4px; border: 1px solid rgba(255,255,255,.08); }
     .d-files h4, .d-diff h4 { margin: 0 0 6px; font-size: 12px; color: #c9d1d9; }
     .d-files { margin: 0 0 14px; }
     .file { display: flex; gap: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 20px; color: #c9d1d9; }
@@ -165,6 +166,15 @@
     }).join('')
   }
 
+  function inlineCodeHtml(text) {
+    return String(text).split(/(`[^`]+`)/g).map(part => {
+      if (part.length >= 2 && part.startsWith('`') && part.endsWith('`')) {
+        return '<code class="inline-code">' + esc(part.slice(1, -1)) + '</code>'
+      }
+      return esc(part)
+    }).join('')
+  }
+
   function layout(commits) {
     const column = new Map(), rowOf = new Map(), tips = []
     commits.forEach((c, i) => {
@@ -281,7 +291,7 @@ index 1234567..89abcde 100644
 `
     return {
       ...c,
-      body: '这是「' + c.subject + '」的模拟提交正文。\n\n预览页用于离线检查图谱泳道、合并曲线与 refs 标记的渲染效果。',
+      body: '这是「' + c.subject + '」的模拟提交正文。\n\n修改了 `dsh-git-graph/lib/client.js` 和 `preview/preview.html` 两个文件。\n\n预览页用于离线检查图谱泳道、合并曲线与 refs 标记的渲染效果。',
       files,
       stats: '3 files changed, 12 insertions(+), 4 deletions(-)',
       diff,
@@ -302,7 +312,7 @@ index 1234567..89abcde 100644
         esc(d.hash + ' · ' + d.author) + ' · ' + esc(new Date(d.date).toLocaleString('zh-CN')) +
         '<div>' + refsHtml(d.refs) + '</div>' +
       '</div>' +
-      '<pre class="d-body">' + esc(d.body) + '</pre>' +
+      '<pre class="d-body">' + inlineCodeHtml(d.body) + '</pre>' +
       '<div class="d-files"><h4>Changed files (' + d.files.length + ')</h4>' +
         d.files.map(f => '<div class="file"><span class="st ' + stClass(f.status) + '">' + esc(f.status.charAt(0)) + '</span><span>' + esc(f.path) + '</span></div>').join('') +
       '</div>' +

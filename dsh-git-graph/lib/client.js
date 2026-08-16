@@ -49,6 +49,7 @@ window.__ModuleLoader__.load({
       '.gg-detail h3{margin:0 0 2px;font-size:14px;line-height:20px;font-weight:600;word-break:break-word}',
       '.gg-detail .gg-d-meta{font-size:12px;color:var(--dsw-alias-label-tertiary,#8b94a7);margin:2px 0 8px}',
       '.gg-d-body{white-space:pre-wrap;font-size:12.5px;line-height:18px;color:var(--dsw-alias-label-secondary,#c9d1d9);margin:0 0 12px}',
+      '.gg-d-body .gg-inline-code{background:color-mix(in srgb,var(--dsw-alias-label-primary,#e6e6e6) 8%,transparent);color:var(--dsw-alias-label-primary,#e6e6e6);font-family:var(--ds-font-family-code,ui-monospace,SFMono-Regular,Menlo,monospace);font-size:12px;padding:1px 5px;border-radius:4px;border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.08))}',
       '.gg-d-files{margin:0 0 12px}',
       '.gg-d-files h4,.gg-d-diff h4{margin:0 0 4px;font-size:12px;color:var(--dsw-alias-label-secondary,#c9d1d9)}',
       '.gg-file{display:flex;gap:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary,#c9d1d9)}',
@@ -202,6 +203,20 @@ window.__ModuleLoader__.load({
         if (r.includes('/')) return `<span class="gg-ref gg-ref-remote">${esc(r)}</span>`
         return `<span class="gg-ref gg-ref-branch">${esc(r)}</span>`
       }).join('')
+    }
+
+    /**
+     * Split free text into React nodes, wrapping `backtick-quoted` spans in a
+     * highlighted inline-code element. Plain segments stay as strings so React
+     * escapes them; only the code wrapper is an element.
+     */
+    function renderInlineCode(text) {
+      return String(text).split(/(`[^`]+`)/g).map((part, idx) => {
+        if (part.length >= 2 && part.startsWith('`') && part.endsWith('`')) {
+          return h('code', { className: 'gg-inline-code', key: idx }, part.slice(1, -1))
+        }
+        return part
+      })
     }
 
     // ── 图布局(列/泳道分配) ────────────────────────────────────────────────
@@ -433,7 +448,7 @@ window.__ModuleLoader__.load({
                 h('span', null, ' · ' + esc(fmtDate(detail.data.authorDate))),
                 h('div', { dangerouslySetInnerHTML: { __html: refsHtml(detail.data.refs) } }),
               ),
-              detail.data.body ? h('pre', { className: 'gg-d-body' }, detail.data.body) : null,
+              detail.data.body ? h('pre', { className: 'gg-d-body' }, renderInlineCode(detail.data.body)) : null,
               h('div', { className: 'gg-d-files' },
                 h('h4', null, `Changed files (${detail.data.files.length})`),
                 h('div', null, detail.data.files.map(f =>
