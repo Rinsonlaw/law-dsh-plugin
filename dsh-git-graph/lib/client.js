@@ -31,9 +31,10 @@ window.__ModuleLoader__.load({
       '.gg-graph-col{flex:1;display:flex;min-width:0;min-height:0;overflow:auto;border-right:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.08))}',
       '.gg-detail{flex:1 1 40%;min-width:280px;max-width:46%;display:flex;flex-direction:column;min-height:0;overflow:auto;padding:12px 14px}',
       '.gg-graph-scroll{display:flex;min-width:max-content;min-height:100%}',
-      '.gg-svg{flex:none;display:block}',
+      '.gg-svg{flex:none;display:block;position:static;width:auto;height:auto}',
+      '.gg-panel svg,.gg-overlay svg,.gg-toggle svg{position:static;width:auto;height:auto;flex:none}',
       '.gg-rows{flex:none;display:flex;flex-direction:column}',
-      '.gg-row{display:flex;align-items:center;gap:6px;padding:0 10px 0 4px;cursor:pointer;white-space:nowrap;box-sizing:border-box;border-left:2px solid transparent}',
+      '.gg-row{display:flex;align-items:center;gap:6px;padding:0 10px 0 4px;cursor:pointer;white-space:nowrap;box-sizing:border-box;border-left:2px solid transparent;line-height:1;flex:none;overflow:hidden}',
       '.gg-row:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary,#e6e6e6) 5%,transparent)}',
       '.gg-row.sel{background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#4c8dff) 14%,transparent);border-left-color:var(--dsw-alias-state-business-primary,#4c8dff)}',
       '.gg-hash{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b94a7)}',
@@ -44,7 +45,7 @@ window.__ModuleLoader__.load({
       '.gg-ref-branch{background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#3fb950) 22%,transparent);color:var(--dsw-alias-state-success-primary,#3fb950)}',
       '.gg-ref-tag{background:color-mix(in srgb,#e3b341 22%,transparent);color:#e3b341}',
       '.gg-ref-remote{background:color-mix(in srgb,#79b8ff 18%,transparent);color:#79b8ff}',
-      '.gg-status{display:flex;align-items:center;justify-content:center;padding:24px;color:var(--dsw-alias-label-tertiary,#8b94a7);gap:8px;flex-wrap:wrap}',
+      '.gg-status{flex:1;display:flex;align-items:center;justify-content:center;padding:24px;color:var(--dsw-alias-label-tertiary,#8b94a7);gap:8px;flex-wrap:wrap}',
       '.gg-status.err{color:var(--dsw-alias-state-error-primary,#f85149)}',
       '.gg-detail h3{margin:0 0 2px;font-size:14px;line-height:20px;font-weight:600;word-break:break-word}',
       '.gg-detail .gg-d-meta{font-size:12px;color:var(--dsw-alias-label-tertiary,#8b94a7);margin:2px 0 8px}',
@@ -85,17 +86,72 @@ window.__ModuleLoader__.load({
     const NODE_R = 4.5
     const CORNER_R = 5
     const PAD_X = 6
-    const LANE_COLORS = [
-      '#e06c75', '#61afef', '#98c379', '#d19a66', '#c678dd',
-      '#56b6c2', '#e5c07b', '#abb2bf', '#ff6c6b', '#7c93ff',
+    // Branch colors (assigned per branch name, high-distinction palette).
+    const BRANCH_COLORS = [
+      '#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#a855f7',
+      '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6',
     ]
+    const FALLBACK_COLOR = '#8b94a7'
 
     function esc(s) {
       return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
     }
 
-    function laneColor(col) {
-      return LANE_COLORS[((col % LANE_COLORS.length) + LANE_COLORS.length) % LANE_COLORS.length]
+    /** Branch names referenced by a commit's `%D` refs (tags and bare HEAD skipped). */
+    function branchNames(refs) {
+      const names = []
+      for (const r of refs) {
+        if (!r || r === 'HEAD' || r.startsWith('tag: ')) continue
+        let name = r
+        if (r.startsWith('HEAD -> ')) name = r.slice(8).trim()
+        name = name.replace(/^(origin|upstream|github)\//, '')
+        if (name) names.push(name)
+      }
+      return names
+    }
+
+    /** Branch priority so main/develop/release/hotfix/feature get stable colors. */
+    function branchRank(name) {
+      if (name === 'main' || name === 'master') return 0
+      if (name === 'develop' || name === 'dev') return 1
+      if (name.startsWith('release')) return 2
+      if (name.startsWith('hotfix')) return 3
+      if (name.startsWith('feature')) return 4
+      return 5
+    }
+
+    /**
+     * Stable color per branch: assign colors in priority order, then walk each
+     * branch tip's first-parent chain, coloring commits; later branches stop at
+     * already-colored commits. Returns Map<hash, color>.
+     */
+    function branchColors(rows) {
+      const byHash = new Map(rows.map(r => [r.hash, r]))
+      // branch name -> tip hash (first commit carrying that name, newest first)
+      const branchTip = new Map()
+      rows.forEach(c => {
+        for (const name of branchNames(c.refs)) {
+          if (!branchTip.has(name)) branchTip.set(name, c.hash)
+        }
+      })
+      const sortedNames = [...branchTip.keys()].sort((a, b) => {
+        const ra = branchRank(a), rb = branchRank(b)
+        return ra !== rb ? ra - rb : (a < b ? -1 : a > b ? 1 : 0)
+      })
+      const colorOfBranch = new Map()
+      sortedNames.forEach((name, i) => { colorOfBranch.set(name, BRANCH_COLORS[i % BRANCH_COLORS.length]) })
+      const colorOf = new Map()
+      for (const name of sortedNames) {
+        const color = colorOfBranch.get(name)
+        let hash = branchTip.get(name)
+        while (hash) {
+          if (colorOf.has(hash)) break
+          colorOf.set(hash, color)
+          hash = byHash.get(hash)?.parents[0] ?? null
+        }
+      }
+      rows.forEach(c => { if (!colorOf.has(c.hash)) colorOf.set(c.hash, FALLBACK_COLOR) })
+      return colorOf
     }
 
     async function api(method, payload) {
@@ -208,12 +264,12 @@ window.__ModuleLoader__.load({
       ].join(' ')
     }
 
-    function buildSvg(rows, maxCol, rowOf) {
+    function buildSvg(rows, maxCol, rowOf, colorOf) {
       const width = (maxCol + 1) * COL_W + PAD_X * 2
       const height = rows.length * ROW_H
       const cx = col => PAD_X + col * COL_W + COL_W / 2
       const cy = i => i * ROW_H + ROW_H / 2
-      const parts = [`<svg class="gg-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`]
+      const parts = [`<svg class="gg-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="position:static;width:${width}px;height:${height}px;display:block;flex:none;fill:none;stroke:none">`]
 
       // edges (drawn first, under nodes)
       rows.forEach((c, i) => {
@@ -225,7 +281,11 @@ window.__ModuleLoader__.load({
           const pc = c.parentCols[pi]
           const px = cx(pc)
           const py = cy(pr)
-          const color = laneColor(pc)
+          // First parent follows the commit's branch; merge parents take the
+          // merged-in branch's color.
+          const color = pi === 0
+            ? (colorOf.get(c.hash) ?? FALLBACK_COLOR)
+            : (colorOf.get(p) ?? FALLBACK_COLOR)
           if (pc === c.col) {
             parts.push(`<line x1="${x}" y1="${y + NODE_R}" x2="${px}" y2="${py - NODE_R}" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`)
           } else {
@@ -238,7 +298,7 @@ window.__ModuleLoader__.load({
       rows.forEach((c, i) => {
         const x = cx(c.col)
         const y = cy(i)
-        const color = laneColor(c.col)
+        const color = colorOf.get(c.hash) ?? FALLBACK_COLOR
         parts.push(`<circle cx="${x}" cy="${y}" r="${NODE_R}" fill="${color}" stroke="rgba(0,0,0,.35)" stroke-width="1"/>`)
       })
 
@@ -314,7 +374,8 @@ window.__ModuleLoader__.load({
 
       const svg = useMemo(() => {
         if (!state.data || state.data.commits.length === 0) return null
-        return buildSvg(layoutData.rows, layoutData.maxCol, layoutData.rowOf)
+        const colorOf = branchColors(layoutData.rows)
+        return buildSvg(layoutData.rows, layoutData.maxCol, layoutData.rowOf, colorOf)
       }, [layoutData, state.data])
 
       const rowsMarkup = useMemo(() => rowsHtml(layoutData.rows, selected), [layoutData.rows, selected])
@@ -338,16 +399,16 @@ window.__ModuleLoader__.load({
         ),
         h('div', { className: 'gg-body' },
           h('div', { className: 'gg-graph-col' },
-            h('div', { className: 'gg-graph-scroll', ref: scrollRef },
-              state.status === 'loading' && h('div', { className: 'gg-status' }, 'Loading commit graph…'),
-              state.status === 'error' && h('div', { className: 'gg-status err' }, 'Error: ' + state.error),
-              state.status === 'ready' && state.data && !state.data.isRepo && h('div', { className: 'gg-status' }, 'Not a git repository. Enter a repository path above.'),
-              state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length === 0 && h('div', { className: 'gg-status' }, 'No commits yet.'),
-              state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length > 0 && h(Fragment, null,
-                svg ? h('div', { dangerouslySetInnerHTML: { __html: svg } }) : null,
-                h('div', { className: 'gg-rows', onClick: onRowClick, dangerouslySetInnerHTML: { __html: rowsMarkup } }),
-              ),
-            ),
+            state.status === 'loading' && h('div', { className: 'gg-status' }, 'Loading commit graph…'),
+            state.status === 'error' && h('div', { className: 'gg-status err' }, 'Error: ' + state.error),
+            state.status === 'ready' && state.data && !state.data.isRepo && h('div', { className: 'gg-status' }, 'Not a git repository. Enter a repository path above.'),
+            state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length === 0 && h('div', { className: 'gg-status' }, 'No commits yet.'),
+            state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length > 0 && h('div', {
+              className: 'gg-graph-scroll',
+              ref: scrollRef,
+              onClick: onRowClick,
+              dangerouslySetInnerHTML: { __html: (svg ?? '') + '<div class="gg-rows">' + rowsMarkup + '</div>' },
+            }),
           ),
           h('div', { className: 'gg-detail' },
             selected === null && h('div', { className: 'gg-empty' }, 'Select a commit to see its message, changed files, and diff.'),

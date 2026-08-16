@@ -77,24 +77,73 @@
   </div>
 
   <script>
-  // ── 模拟提交数据（新 → 旧，topo 顺序） ─────────────────────────────────────
+  // ── 模拟提交数据：git flow 常见分支（新 → 旧，topo 顺序） ──────────────────
   const MOCK_COMMITS = [
-    { hash: 'e91b4f2', parents: ['c3a77e1', 'd84f9c0'], subject: "Merge branch 'feature' into main", author: 'law', date: '2026-08-16T12:00:00+08:00', refs: ['HEAD -> main', 'origin/main'] },
-    { hash: 'b2f8c3a', parents: ['a7d4e90'], subject: 'dev: add analytics hook', author: 'law', date: '2026-08-16T10:30:00+08:00', refs: ['develop', 'origin/develop'] },
-    { hash: 'c3a77e1', parents: ['e5f6b1d'], subject: 'fix: correct typo in README', author: 'law', date: '2026-08-15T09:00:00+08:00', refs: [] },
-    { hash: 'd84f9c0', parents: ['f2a1e8b'], subject: 'feat: add search box', author: 'alice', date: '2026-08-14T16:20:00+08:00', refs: ['origin/feature'] },
-    { hash: 'e5f6b1d', parents: ['f2a1e8b'], subject: 'chore: bump version to 1.0.1', author: 'law', date: '2026-08-13T11:00:00+08:00', refs: [] },
-    { hash: 'f2a1e8b', parents: ['a7d4e90'], subject: 'feat: add filter controls', author: 'alice', date: '2026-08-12T14:00:00+08:00', refs: [] },
-    { hash: 'a7d4e90', parents: ['9c8b7a6'], subject: 'chore: project scaffold', author: 'law', date: '2026-08-11T10:00:00+08:00', refs: ['tag: v1.0'] },
-    { hash: '9c8b7a6', parents: [], subject: 'init: first commit', author: 'law', date: '2026-08-10T09:00:00+08:00', refs: ['tag: v0.1'] },
+    { hash: 'm5', parents: ['m4', 'h2'], subject: "Merge branch 'hotfix/1.0.1' into main", author: 'law', date: '2026-08-16T18:00:00+08:00', refs: ['HEAD -> main', 'origin/main'] },
+    { hash: 'd5', parents: ['d4', 'h2'], subject: "Merge branch 'hotfix/1.0.1' into develop", author: 'law', date: '2026-08-16T17:30:00+08:00', refs: ['develop', 'origin/develop'] },
+    { hash: 'h2', parents: ['m4'], subject: 'hotfix: fix login crash', author: 'bob', date: '2026-08-16T16:00:00+08:00', refs: ['hotfix/1.0.1'] },
+    { hash: 'd4', parents: ['d3', 'r1'], subject: "Merge branch 'release/1.0' into develop", author: 'law', date: '2026-08-15T15:00:00+08:00', refs: [] },
+    { hash: 'm4', parents: ['m3', 'r1'], subject: "Merge branch 'release/1.0' into main", author: 'law', date: '2026-08-15T14:30:00+08:00', refs: [] },
+    { hash: 'd3', parents: ['d2', 'f2'], subject: "Merge branch 'feature/login' into develop", author: 'law', date: '2026-08-14T12:00:00+08:00', refs: [] },
+    { hash: 'r1', parents: ['d2'], subject: 'chore: bump version to 1.0', author: 'law', date: '2026-08-14T10:00:00+08:00', refs: ['release/1.0'] },
+    { hash: 'f2', parents: ['f1'], subject: 'feat: add password reset', author: 'alice', date: '2026-08-13T16:00:00+08:00', refs: ['feature/login'] },
+    { hash: 'f1', parents: ['d2'], subject: 'feat: add login form', author: 'alice', date: '2026-08-13T14:00:00+08:00', refs: [] },
+    { hash: 'm3', parents: ['m2'], subject: 'docs: update README', author: 'law', date: '2026-08-12T11:00:00+08:00', refs: [] },
+    { hash: 'd2', parents: ['d1'], subject: 'chore: update dependencies', author: 'law', date: '2026-08-12T10:00:00+08:00', refs: [] },
+    { hash: 'm2', parents: ['m1'], subject: 'fix: minor UI bug', author: 'law', date: '2026-08-11T15:00:00+08:00', refs: [] },
+    { hash: 'd1', parents: ['base'], subject: 'feat: add user settings', author: 'alice', date: '2026-08-11T14:00:00+08:00', refs: [] },
+    { hash: 'm1', parents: ['base'], subject: 'chore: initial main setup', author: 'law', date: '2026-08-11T13:00:00+08:00', refs: [] },
+    { hash: 'base', parents: [], subject: 'init: first commit', author: 'law', date: '2026-08-10T09:00:00+08:00', refs: ['tag: v0.1'] },
   ]
 
   // ── 与 lib/client.js 一致的布局 + SVG 渲染逻辑（纯 JS 版） ─────────────────
   const ROW_H = 32, COL_W = 16, NODE_R = 4.5, CORNER_R = 5, PAD_X = 6
-  const LANE_COLORS = ['#e06c75', '#61afef', '#98c379', '#d19a66', '#c678dd', '#56b6c2', '#e5c07b', '#abb2bf', '#ff6c6b', '#7c93ff']
+  const BRANCH_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6']
+  const FALLBACK_COLOR = '#8b94a7'
 
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
-  function laneColor(col) { return LANE_COLORS[((col % LANE_COLORS.length) + LANE_COLORS.length) % LANE_COLORS.length] }
+  function branchNames(refs) {
+    const names = []
+    for (const r of refs) {
+      if (!r || r === 'HEAD' || r.startsWith('tag: ')) continue
+      let name = r
+      if (r.startsWith('HEAD -> ')) name = r.slice(8).trim()
+      name = name.replace(/^(origin|upstream|github)\//, '')
+      if (name) names.push(name)
+    }
+    return names
+  }
+  function branchRank(name) {
+    if (name === 'main' || name === 'master') return 0
+    if (name === 'develop' || name === 'dev') return 1
+    if (name.startsWith('release')) return 2
+    if (name.startsWith('hotfix')) return 3
+    if (name.startsWith('feature')) return 4
+    return 5
+  }
+  function branchColors(rows) {
+    const byHash = new Map(rows.map(r => [r.hash, r]))
+    const branchTip = new Map()
+    rows.forEach(c => { for (const name of branchNames(c.refs)) { if (!branchTip.has(name)) branchTip.set(name, c.hash) } })
+    const sortedNames = [...branchTip.keys()].sort((a, b) => {
+      const ra = branchRank(a), rb = branchRank(b)
+      return ra !== rb ? ra - rb : (a < b ? -1 : a > b ? 1 : 0)
+    })
+    const colorOfBranch = new Map()
+    sortedNames.forEach((name, i) => { colorOfBranch.set(name, BRANCH_COLORS[i % BRANCH_COLORS.length]) })
+    const colorOf = new Map()
+    for (const name of sortedNames) {
+      const color = colorOfBranch.get(name)
+      let hash = branchTip.get(name)
+      while (hash) {
+        if (colorOf.has(hash)) break
+        colorOf.set(hash, color)
+        hash = byHash.get(hash)?.parents[0] ?? null
+      }
+    }
+    rows.forEach(c => { if (!colorOf.has(c.hash)) colorOf.set(c.hash, FALLBACK_COLOR) })
+    return colorOf
+  }
   function relTime(iso) {
     const d = new Date(iso); if (isNaN(d)) return ''
     const diff = Date.now() - d.getTime(), abs = Math.abs(diff)
@@ -152,17 +201,18 @@
     ].join(' ')
   }
 
-  function buildSvg(rows, maxCol, rowOf) {
+  function buildSvg(rows, maxCol, rowOf, colorOf) {
     const width = (maxCol + 1) * COL_W + PAD_X * 2
     const height = rows.length * ROW_H
     const cx = col => PAD_X + col * COL_W + COL_W / 2
     const cy = i => i * ROW_H + ROW_H / 2
-    const parts = [`<svg class="svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`]
+    const parts = [`<svg class="svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="position:static;width:${width}px;height:${height}px;display:block;flex:none;fill:none;stroke:none">`]
     rows.forEach((c, i) => {
       const x = cx(c.col), y = cy(i)
       c.parents.forEach((p, pi) => {
         const pr = rowOf.get(p); if (pr === undefined) return
-        const pc = c.parentCols[pi], px = cx(pc), py = cy(pr), color = laneColor(pc)
+        const pc = c.parentCols[pi], px = cx(pc), py = cy(pr)
+        const color = pi === 0 ? (colorOf.get(c.hash) ?? FALLBACK_COLOR) : (colorOf.get(p) ?? FALLBACK_COLOR)
         if (pc === c.col) {
           parts.push(`<line x1="${x}" y1="${y + NODE_R}" x2="${px}" y2="${py - NODE_R}" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`)
         } else {
@@ -171,7 +221,7 @@
       })
     })
     rows.forEach((c, i) => {
-      const x = cx(c.col), y = cy(i), color = laneColor(c.col)
+      const x = cx(c.col), y = cy(i), color = colorOf.get(c.hash) ?? FALLBACK_COLOR
       parts.push(`<circle cx="${x}" cy="${y}" r="${NODE_R}" fill="${color}" stroke="rgba(0,0,0,.35)" stroke-width="1"/>`)
     })
     parts.push('</svg>')
@@ -244,7 +294,8 @@ index 1234567..89abcde 100644
 
   function render() {
     const { rows, maxCol, rowOf } = layout(MOCK_COMMITS)
-    graphEl.innerHTML = buildSvg(rows, maxCol, rowOf) + '<div class="rows">' + rowsHtml(rows) + '</div>'
+    const colorOf = branchColors(rows)
+    graphEl.innerHTML = buildSvg(rows, maxCol, rowOf, colorOf) + '<div class="rows">' + rowsHtml(rows) + '</div>'
     graphEl.querySelectorAll('.row').forEach(el => {
       el.addEventListener('click', () => {
         selectedHash = el.dataset.hash
