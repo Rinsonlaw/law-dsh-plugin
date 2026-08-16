@@ -227,12 +227,13 @@ window.__ModuleLoader__.load({
       return parts.join('')
     }
 
-    function rowsHtml(rows) {
+    function rowsHtml(rows, selectedHash) {
       return rows.map(c => {
         const refs = refsHtml(c.refs)
         const meta = [c.short, c.author, relTime(c.date)].filter(Boolean).join(' · ')
+        const sel = c.hash === selectedHash ? ' sel' : ''
         return (
-          `<div class="gg-row" data-hash="${esc(c.hash)}" style="height:${ROW_H}px">` +
+          `<div class="gg-row${sel}" data-hash="${esc(c.hash)}" style="height:${ROW_H}px">` +
           refs +
           `<span class="gg-subject">${esc(c.subject || '(no subject)')}</span>` +
           `<span class="gg-meta">${esc(meta)}</span>` +
@@ -297,7 +298,7 @@ window.__ModuleLoader__.load({
         return buildSvg(layoutData.rows, layoutData.maxCol, layoutData.rowOf)
       }, [layoutData, state.data])
 
-      const rowsMarkup = useMemo(() => rowsHtml(layoutData.rows), [layoutData.rows])
+      const rowsMarkup = useMemo(() => rowsHtml(layoutData.rows, selected), [layoutData.rows, selected])
 
       return h('div', { className: 'gg-panel' },
         h('div', { className: 'gg-toolbar' },
