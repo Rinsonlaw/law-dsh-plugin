@@ -570,6 +570,9 @@ window.__ModuleLoader__.load({
         const dispose = betterSidebar.registerTab({
           id: 'git-graph',
           title: 'Git Graph',
+          icon: (size) => h('svg', { width: size, height: size, viewBox: '0 0 16 16', fill: 'currentColor', 'aria-hidden': true },
+            h('path', { d: 'M11.5 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3ZM2 2h6v1.5H2V2Zm9.5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3ZM8 6.5H2V8h6V6.5Zm3.5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3ZM10 11H2v1.5h8V11Z' }),
+          ),
           single: true,
           order: 60,
           component: (props) => h(GitGraphPanel, {
