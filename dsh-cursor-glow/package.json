@@ -17,5 +17,18 @@
       "platform": "web"
     }
   },
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/glow.js",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "license": "MIT"
 }

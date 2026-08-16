@@ -6,18 +6,19 @@
 
 | 文件 | 作用 |
 |---|---|
-| `lib/client.js` | 浏览器端光效代码 + 设置面板（参数默认值在这里，日常调参走设置页） |
+| `lib/glow.js` | **光效唯一事实来源**：纯函数（生成 CSS / SVG / 光晕渐变等），框架无关 |
+| `lib/client.js` | 浏览器端光效代码 + 设置面板（**由构建脚本生成，勿手改**） |
 | `lib/index.js` | host 端挂载点（空实现，无需改动） |
-| `package.json` | 插件声明（`dsh.client` 注册客户端入口） |
+| `src/client.template.js` | 客户端模板，内联 `lib/glow.js` 后生成 `lib/client.js` |
+| `src/preview.template.html` | 预览页模板，内联 `lib/glow.js` 后生成 `preview/preview.html` |
+| `scripts/build.mjs` | 构建脚本：把 `lib/glow.js` 内联进两个模板 |
+| `package.json` | 插件声明（`dsh.client` 注册客户端入口） + `npm run build` 脚本 |
 | `cordis.patch.yml` | bundle 挂载声明 |
-| `preview/preview.html` | 独立预览页，浏览器直接打开即可看效果 |
-| `preview/preview.js` | 预览页引用的光效代码（与 `client.js` 逻辑一致） |
+| `preview/preview.html` | 独立预览页（**由构建脚本生成，勿手改**），浏览器直接打开即可看效果 |
 
-> `preview/preview.js` 和 `lib/client.js` 的光效逻辑一致，但包装不同：
-> - `preview.js` 是普通 IIFE，浏览器可直接运行（`preview.html` 引用它）
-> - `client.js` 包装在 DSH 模块加载器里，供插件加载
->
-> 改默认值时记得**两边同步**（`preview.js` 只影响独立预览页）。
+> 插件与预览页共用 `lib/glow.js` 这一份光效实现，改默认值 / 改效果只需改
+> `lib/glow.js`，再跑一次 `npm run build` 即可同步到 `lib/client.js` 与
+> `preview/preview.html`，不再需要「两边同步」。
 
 ## 设置面板
 
@@ -53,9 +54,16 @@
 ## 如何修改并生效
 
 - **日常调参**：直接打开「设置 → 光标光效」标签页即可，无需改代码。
-- **改默认值 / 改代码后重新部署**：
+- **改默认值 / 改效果后重新部署**：
 
-  1. 编辑 `lib/client.js`（`preview/preview.js` 同步改，仅影响预览页）
+  1. 编辑 `lib/glow.js`（唯一事实来源），然后重新生成产物：
+
+     ```bash
+     npm run build
+     ```
+
+     > 该命令会同时重写 `lib/client.js` 和 `preview/preview.html`。
+
   2. 复制到已安装位置：
 
      ```bash
