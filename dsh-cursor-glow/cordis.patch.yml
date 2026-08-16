@@ -1,0 +1,7 @@
+# dsh-cursor-glow bundle patch
+# Mounts this package as a host plugin entry; the client half is discovered
+# through package.json's `dsh.client` declaration and served at
+# /plugins/dsh-cursor-glow/client.js.
+- insert:
+    - id: cursor-glow
+      name: 'dsh-cursor-glow'
