@@ -13,7 +13,7 @@ window.__ModuleLoader__.load({
 
     const React = require('react')
     const { createElement: h, useState, useEffect, useCallback, useRef, useMemo, Fragment } = React
-    const { IconBranchOutline16 } = require('@deepseek-ai/dsh-client-ui-primitives')
+    const { IconBranchOutline16, IconRefreshOutline16, Tooltip } = require('@deepseek-ai/dsh-client-ui-primitives')
 
     // ── 样式 ────────────────────────────────────────────────────────────────
 
@@ -28,6 +28,7 @@ window.__ModuleLoader__.load({
       '.gg-btn{font:inherit;font-size:12px;color:var(--dsw-alias-label-primary,#e6e6e6);background:var(--dsw-alias-button-elevated-fill,#262a33);border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.1));border-radius:6px;padding:4px 10px;cursor:pointer;white-space:nowrap}',
       '.gg-btn:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary,#e6e6e6) 8%,transparent)}',
       '.gg-btn.primary{background:var(--dsw-alias-state-business-primary,#4c8dff);border-color:transparent;color:#fff}',
+      '.gg-btn.gg-icon{padding:0;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;flex:none}',
       '.gg-body{flex:1;display:flex;min-height:0}',
       '.gg-graph-col{flex:1;display:flex;min-width:0;min-height:0;overflow:auto;border-right:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.08))}',
       '.gg-detail{flex:1 1 40%;min-width:280px;max-width:46%;display:flex;flex-direction:column;min-height:0;overflow:auto;padding:12px 14px}',
@@ -442,10 +443,8 @@ window.__ModuleLoader__.load({
             'Git Graph',
           ),
           h('input', {
-            className: 'gg-input gg-path', value: path, spellCheck: false,
-            placeholder: 'repository path',
-            onChange: e => setPath(e.target.value),
-            onKeyDown: e => { if (e.key === 'Enter') load(path) },
+            className: 'gg-input gg-path', value: path, readOnly: true,
+            spellCheck: false, placeholder: 'repository path', title: '仓库路径',
           }),
           h('select', {
             className: 'gg-input gg-count',
@@ -460,7 +459,11 @@ window.__ModuleLoader__.load({
             h('option', { value: 1000 }, '最近 1000'),
             h('option', { value: 2000 }, '最近 2000'),
           ),
-          h('button', { className: 'gg-btn primary', onClick: () => load(path) }, 'Refresh'),
+          h(Tooltip, { label: '刷新', side: 'bottom', delayMs: 400 },
+            h('button', { className: 'gg-btn primary gg-icon', 'aria-label': '刷新', onClick: () => load(path) },
+              h(IconRefreshOutline16, { size: 16 }),
+            ),
+          ),
         ),
         h('div', { className: 'gg-body' },
           h('div', { className: 'gg-graph-col' },
@@ -551,9 +554,11 @@ window.__ModuleLoader__.load({
         if (overlayRoot) closeOverlay()
         else if (appCtx) openOverlay(appCtx)
       }
-      return h('button', {
-        className: 'gg-toggle', title: 'Git Graph', 'aria-label': 'Git Graph', onClick,
-      }, h(IconBranchOutline16, { size: 16 }))
+      return h(Tooltip, { label: 'Git Graph', side: 'right', delayMs: 400 },
+        h('button', {
+          className: 'gg-toggle', 'aria-label': 'Git Graph', onClick,
+        }, h(IconBranchOutline16, { size: 16 })),
+      )
     }
 
     // ── 插件主体 ────────────────────────────────────────────────────────────
