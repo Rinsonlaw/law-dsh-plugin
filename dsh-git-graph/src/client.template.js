@@ -48,6 +48,7 @@ window.__ModuleLoader__.load({
       '.gg-meta{font-size:11px;color:var(--dsw-alias-label-tertiary,#8b94a7);flex:none}',
       '.gg-ref{display:inline-block;font-size:10px;line-height:16px;padding:0 6px;border-radius:8px;margin-right:4px;font-weight:600;vertical-align:middle}',
       '.gg-ref-head{background:#e5484d;color:#fff}',
+      '.gg-ref-current{background:#8b5cf6;color:#fff}',
       '.gg-ref-branch{background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#3fb950) 22%,transparent);color:var(--dsw-alias-state-success-primary,#3fb950)}',
       '.gg-ref-tag{background:color-mix(in srgb,#e3b341 22%,transparent);color:#e3b341}',
       '.gg-ref-remote{background:color-mix(in srgb,#79b8ff 18%,transparent);color:#79b8ff}',

@@ -110,7 +110,7 @@ export function refsHtml(refs) {
     if (r.startsWith('HEAD ->')) {
       const branch = r.slice('HEAD ->'.length).trim()
       const head = '<span class="gg-ref gg-ref-head">HEAD</span>'
-      const b = branch ? `<span class="gg-ref gg-ref-branch">${esc(branch)}</span>` : ''
+      const b = branch ? `<span class="gg-ref gg-ref-current">${esc(branch)}</span>` : ''
       return head + b
     }
     if (r.startsWith('tag: ')) return `<span class="gg-ref gg-ref-tag">${esc(r.slice(5))}</span>`

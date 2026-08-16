@@ -130,7 +130,7 @@ function refsHtml(refs) {
     if (r.startsWith('HEAD ->')) {
       const branch = r.slice('HEAD ->'.length).trim()
       const head = '<span class="gg-ref gg-ref-head">HEAD</span>'
-      const b = branch ? `<span class="gg-ref gg-ref-branch">${esc(branch)}</span>` : ''
+      const b = branch ? `<span class="gg-ref gg-ref-current">${esc(branch)}</span>` : ''
       return head + b
     }
     if (r.startsWith('tag: ')) return `<span class="gg-ref gg-ref-tag">${esc(r.slice(5))}</span>`
@@ -327,6 +327,7 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
       '.gg-meta{font-size:11px;color:var(--dsw-alias-label-tertiary,#8b94a7);flex:none}',
       '.gg-ref{display:inline-block;font-size:10px;line-height:16px;padding:0 6px;border-radius:8px;margin-right:4px;font-weight:600;vertical-align:middle}',
       '.gg-ref-head{background:#e5484d;color:#fff}',
+      '.gg-ref-current{background:#8b5cf6;color:#fff}',
       '.gg-ref-branch{background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#3fb950) 22%,transparent);color:var(--dsw-alias-state-success-primary,#3fb950)}',
       '.gg-ref-tag{background:color-mix(in srgb,#e3b341 22%,transparent);color:#e3b341}',
       '.gg-ref-remote{background:color-mix(in srgb,#79b8ff 18%,transparent);color:#79b8ff}',
