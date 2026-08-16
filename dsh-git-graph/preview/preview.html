@@ -90,7 +90,7 @@
   ]
 
   // ── 与 lib/client.js 一致的布局 + SVG 渲染逻辑（纯 JS 版） ─────────────────
-  const ROW_H = 32, COL_W = 16, NODE_R = 4.5, PAD_X = 6
+  const ROW_H = 32, COL_W = 16, NODE_R = 4.5, CORNER_R = 5, PAD_X = 6
   const LANE_COLORS = ['#e06c75', '#61afef', '#98c379', '#d19a66', '#c678dd', '#56b6c2', '#e5c07b', '#abb2bf', '#ff6c6b', '#7c93ff']
 
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
@@ -138,6 +138,20 @@
     return { rows, maxCol, rowOf }
   }
 
+  function elbowPath(x1, y1, x2, y2) {
+    const dir = x2 > x1 ? 1 : -1
+    const ymid = y1 + ROW_H / 2
+    const r = Math.max(2, Math.min(CORNER_R, Math.abs(x2 - x1) / 2, (y2 - y1) / 3))
+    return [
+      `M ${x1} ${y1}`,
+      `L ${x1} ${ymid - r}`,
+      `Q ${x1} ${ymid} ${x1 + dir * r} ${ymid}`,
+      `L ${x2 - dir * r} ${ymid}`,
+      `Q ${x2} ${ymid} ${x2} ${ymid + r}`,
+      `L ${x2} ${y2 - NODE_R}`,
+    ].join(' ')
+  }
+
   function buildSvg(rows, maxCol, rowOf) {
     const width = (maxCol + 1) * COL_W + PAD_X * 2
     const height = rows.length * ROW_H
@@ -150,10 +164,9 @@
         const pr = rowOf.get(p); if (pr === undefined) return
         const pc = c.parentCols[pi], px = cx(pc), py = cy(pr), color = laneColor(pc)
         if (pc === c.col) {
-          parts.push(`<line x1="${x}" y1="${y + NODE_R}" x2="${px}" y2="${py - NODE_R}" stroke="${color}" stroke-width="2"/>`)
+          parts.push(`<line x1="${x}" y1="${y + NODE_R}" x2="${px}" y2="${py - NODE_R}" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`)
         } else {
-          const oy = ROW_H * 0.9
-          parts.push(`<path d="M ${x} ${y} C ${x} ${y + oy}, ${px} ${py - oy}, ${px} ${py}" fill="none" stroke="${color}" stroke-width="2"/>`)
+          parts.push(`<path d="${elbowPath(x, y, px, py)}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`)
         }
       })
     })

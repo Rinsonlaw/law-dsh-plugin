@@ -83,6 +83,7 @@ window.__ModuleLoader__.load({
     const ROW_H = 32
     const COL_W = 16
     const NODE_R = 4.5
+    const CORNER_R = 5
     const PAD_X = 6
     const LANE_COLORS = [
       '#e06c75', '#61afef', '#98c379', '#d19a66', '#c678dd',
@@ -188,6 +189,25 @@ window.__ModuleLoader__.load({
       return { rows, maxCol, rowOf }
     }
 
+    /**
+     * Rounded-rectangle corner elbow from a commit node (x1,y1) down to a
+     * parent node (x2,y2) in a different lane: vertical → rounded corner →
+     * horizontal → rounded corner → vertical. `y2` is always below `y1`.
+     */
+    function elbowPath(x1, y1, x2, y2) {
+      const dir = x2 > x1 ? 1 : -1
+      const ymid = y1 + ROW_H / 2
+      const r = Math.max(2, Math.min(CORNER_R, Math.abs(x2 - x1) / 2, (y2 - y1) / 3))
+      return [
+        `M ${x1} ${y1}`,
+        `L ${x1} ${ymid - r}`,
+        `Q ${x1} ${ymid} ${x1 + dir * r} ${ymid}`,
+        `L ${x2 - dir * r} ${ymid}`,
+        `Q ${x2} ${ymid} ${x2} ${ymid + r}`,
+        `L ${x2} ${y2 - NODE_R}`,
+      ].join(' ')
+    }
+
     function buildSvg(rows, maxCol, rowOf) {
       const width = (maxCol + 1) * COL_W + PAD_X * 2
       const height = rows.length * ROW_H
@@ -207,10 +227,9 @@ window.__ModuleLoader__.load({
           const py = cy(pr)
           const color = laneColor(pc)
           if (pc === c.col) {
-            parts.push(`<line x1="${x}" y1="${y + NODE_R}" x2="${px}" y2="${py - NODE_R}" stroke="${color}" stroke-width="2"/>`)
+            parts.push(`<line x1="${x}" y1="${y + NODE_R}" x2="${px}" y2="${py - NODE_R}" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`)
           } else {
-            const oy = ROW_H * 0.9
-            parts.push(`<path d="M ${x} ${y} C ${x} ${y + oy}, ${px} ${py - oy}, ${px} ${py}" fill="none" stroke="${color}" stroke-width="2"/>`)
+            parts.push(`<path d="${elbowPath(x, y, px, py)}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`)
           }
         })
       })
