@@ -437,8 +437,10 @@ window.__ModuleLoader__.load({
 
       return h('div', { className: 'gg-panel' },
         h('div', { className: 'gg-toolbar' },
-          h('span', { className: 'gg-title', dangerouslySetInnerHTML: { __html: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3ZM2 2h6v1.5H2V2Zm9.5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3ZM8 6.5H2V8h6V6.5Zm3.5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3ZM10 11H2v1.5h8V11Z"/></svg>' } }),
-          h('span', null, 'Git Graph'),
+          h('span', { className: 'gg-title' },
+            h(IconBranchOutline16, { size: 16 }),
+            'Git Graph',
+          ),
           h('input', {
             className: 'gg-input gg-path', value: path, spellCheck: false,
             placeholder: 'repository path',
@@ -527,7 +529,10 @@ window.__ModuleLoader__.load({
         h('div', { className: 'gg-overlay', onClick: e => { if (e.target === e.currentTarget) close() } },
           h('div', { className: 'gg-overlay-panel' },
             h('div', { className: 'gg-overlay-head' },
-              h('span', { className: 'gg-title' }, 'Git Graph'),
+              h('span', { className: 'gg-title' },
+                h(IconBranchOutline16, { size: 16 }),
+                'Git Graph',
+              ),
               h('button', { className: 'gg-close', onClick: close }, '×'),
             ),
             h(GitGraphPanel, { sessionId, initialCwd: cwd }),
@@ -548,8 +553,7 @@ window.__ModuleLoader__.load({
       }
       return h('button', {
         className: 'gg-toggle', title: 'Git Graph', 'aria-label': 'Git Graph', onClick,
-        dangerouslySetInnerHTML: { __html: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3ZM2 2h6v1.5H2V2Zm9.5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3ZM8 6.5H2V8h6V6.5Zm3.5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3ZM10 11H2v1.5h8V11Z"/></svg>' },
-      })
+      }, h(IconBranchOutline16, { size: 16 }))
     }
 
     // ── 插件主体 ────────────────────────────────────────────────────────────
