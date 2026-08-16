@@ -19,6 +19,7 @@
     .toolbar .hint { font-size: 12px; color: #8b94a7; }
     .input { font: inherit; font-size: 12px; color: #e6e6e6; background: #1a1d24; border: 1px solid rgba(255,255,255,.1); border-radius: 6px; padding: 4px 8px; outline: none; }
     .input.path { flex: 1 1 220px; }
+    .input.count { width: 104px; }
     .btn { font: inherit; font-size: 12px; color: #e6e6e6; background: #262a33; border: 1px solid rgba(255,255,255,.1); border-radius: 6px; padding: 4px 12px; cursor: pointer; white-space: nowrap; }
     .btn:hover { background: rgba(255,255,255,.06); }
     .btn.primary { background: #4c8dff; border-color: transparent; color: #fff; }
@@ -70,6 +71,14 @@
         Git Graph
       </span>
       <input class="input path" value="demo-repo（模拟数据）" spellcheck="false" disabled />
+      <select class="input count" id="countSel" title="提交数量上限" onchange="render()">
+        <option value="0">全部</option>
+        <option value="100">最近 100</option>
+        <option value="300" selected>最近 300</option>
+        <option value="500">最近 500</option>
+        <option value="1000">最近 1000</option>
+        <option value="2000">最近 2000</option>
+      </select>
       <button class="btn primary" onclick="render()">Refresh</button>
       <span class="hint">这是独立预览页，使用内置模拟提交数据；点任意提交看详情。</span>
     </div>
@@ -349,7 +358,9 @@ index 1234567..89abcde 100644
   }
 
   function render() {
-    const { rows, maxCol, rowOf } = layout(MOCK_COMMITS)
+    const count = Number(document.getElementById('countSel').value) || 0
+    const commits = count > 0 ? MOCK_COMMITS.slice(0, count) : MOCK_COMMITS
+    const { rows, maxCol, rowOf } = layout(commits)
     const colorOf = branchColors(rows)
     graphEl.innerHTML = graphHtml(rows, maxCol, rowOf, colorOf, selectedHash)
     graphEl.querySelectorAll('.row').forEach(el => {
@@ -361,7 +372,7 @@ index 1234567..89abcde 100644
       })
     })
     // 默认选中最新提交
-    const first = MOCK_COMMITS[0]
+    const first = commits[0]
     graphEl.querySelector(`.row[data-hash="${first.hash}"]`)?.classList.add('sel')
     renderDetail(first)
   }
