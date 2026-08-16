@@ -7,15 +7,42 @@
   <style>
     :root { color-scheme: dark; }
     * { margin: 0; box-sizing: border-box; }
+    html, body { height: 100%; }
     body {
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
       font-family: -apple-system, "PingFang SC", "Segoe UI", sans-serif;
       background: radial-gradient(1200px 800px at 50% -10%, #1e293b, #0b1120 60%);
       color: #e2e8f0;
       overflow: hidden;
     }
+
+    .app { display: flex; height: 100%; }
+
+    .panel {
+      width: 340px; flex: none; overflow-y: auto;
+      padding: 22px 18px;
+      background: rgba(15,23,42,.62);
+      border-right: 1px solid rgba(148,163,184,.15);
+      backdrop-filter: blur(6px);
+    }
+    .panel-title { font-size: 17px; font-weight: 700; letter-spacing: -.3px; }
+    .panel-desc { margin-top: 6px; font-size: 12px; line-height: 18px; color: #94a3b8; }
+
+    .group { margin-top: 20px; }
+    .group-title { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: #e2e8f0; }
+
+    .field { display: flex; flex-direction: column; gap: 6px; padding: 9px 0; border-bottom: 1px solid rgba(148,163,184,.08); }
+    .field-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+    .field-name { display: flex; flex-direction: column; gap: 2px; }
+    .field-label { font-size: 12.5px; color: #cbd5e1; }
+    .field-hint { font-size: 11px; color: #64748b; }
+    .field-value { font-size: 11.5px; color: #94a3b8; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; }
+    input[type=range] { width: 100%; margin: 0; accent-color: #4c8dff; cursor: pointer; }
+    input[type=color] { width: 100%; height: 30px; padding: 1px 2px; border: 1px solid rgba(148,163,184,.2); border-radius: 6px; background: transparent; cursor: pointer; }
+
+    .reset { margin-top: 20px; font: inherit; font-size: 12.5px; color: #e2e8f0; background: rgba(38,42,51,.6); border: 1px solid rgba(148,163,184,.2); border-radius: 6px; padding: 7px 16px; cursor: pointer; }
+    .reset:hover { background: rgba(148,163,184,.12); }
+
+    .stage { flex: 1; display: grid; place-items: center; overflow: hidden; }
     .card {
       text-align: center;
       padding: 48px 56px;
@@ -30,29 +57,37 @@
       background: linear-gradient(90deg,#ff5e7e,#ff9d5c,#ffe95c,#5cff9d,#5cd6ff,#a35cff,#ff5cf0);
       -webkit-background-clip: text; background-clip: text; color: transparent;
     }
-    p { margin-top: 14px; font-size: 15px; color: #94a3b8; }
-    .hint { margin-top: 26px; font-size: 13px; color: #64748b; }
+    .card .desc { margin-top: 14px; font-size: 15px; color: #94a3b8; }
+    .card .hint { margin-top: 26px; font-size: 13px; color: #64748b; }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1><span>呼吸灯箭头</span></h1>
-    <p>黑心白边箭头 + 圆形光晕，单一色相随时间流动、呼吸脉动</p>
-    <p class="hint">满意就告诉我；要调参（光晕大小 / 亮度 / 呼吸速度 / 色相流速）也可以说</p>
+  <div class="app">
+    <aside class="panel" id="panel">
+      <h2 class="panel-title">光标光效</h2>
+      <p class="panel-desc">调整自定义光标的箭头、光晕与呼吸动画参数，改动即时生效。</p>
+    </aside>
+    <main class="stage">
+      <div class="card">
+        <h1><span>呼吸灯箭头</span></h1>
+        <p class="desc">黑心白边箭头 + 圆形光晕，单一色相随时间流动、呼吸脉动</p>
+        <p class="hint">左侧调节参数，与插件「设置 → 光标光效」完全一致</p>
+      </div>
+    </main>
   </div>
 
   <script>
   // ============================================================
   // 呼吸灯箭头（黑心白边 + 圆形呼吸光晕）
   // 单一色相随时间流动 + 呼吸脉动（scale/opacity）。
-  // 效果逻辑由 scripts/build.mjs 从 lib/glow.js 内联而来，
-  // 与真实插件 lib/client.js 共用同一份实现，保证预览一致。
+  // 效果逻辑与参数 schema 由 scripts/build.mjs 从 lib/glow.js 内联而来，
+  // 与真实插件 lib/client.js 共用同一份实现，保证预览与插件一致。
   // ============================================================
   (function () {
     if (window.__cursorGlowInjected) return;
     window.__cursorGlowInjected = true;
 
-    // ── 共享效果逻辑（由 scripts/build.mjs 内联自 lib/glow.js） ────────────
+    // ── 共享效果逻辑 + 参数 schema（由 scripts/build.mjs 内联自 lib/glow.js） ─
     // Pure, framework-agnostic cursor-glow rendering for dsh-cursor-glow.
 //
 // This module is the SINGLE source of truth for the breathing rainbow-halo
@@ -87,6 +122,48 @@ const DEFAULT_CONFIG = {
   breatheOpacityMax: 0.8,
   hueCycleMs: 6000,
 }
+
+// Parameter schema for the settings UI. The plugin's React settings panel and
+// the standalone preview both render their controls from this single list, so
+// the adjustable parameters (labels, ranges, steps, units) can never drift.
+const PARAM_GROUPS = [
+  {
+    title: '箭头 Arrow',
+    fields: [
+      { key: 'arrowSize', label: '尺寸', type: 'range', min: 12, max: 48, step: 1, unit: ' px' },
+      { key: 'arrowFill', label: '填充色', type: 'color' },
+      { key: 'arrowFillOpacity', label: '填充透明度', type: 'range', min: 0, max: 1, step: 0.01 },
+      { key: 'arrowStroke', label: '描边色', type: 'color' },
+      { key: 'arrowStrokeOpacity', label: '描边透明度', type: 'range', min: 0, max: 1, step: 0.01 },
+      { key: 'arrowStrokeWidth', label: '描边粗细', type: 'range', min: 0.5, max: 8, step: 0.5, unit: ' px' },
+    ],
+  },
+  {
+    title: '光晕 Halo',
+    fields: [
+      { key: 'haloSize', label: '直径', type: 'range', min: 12, max: 80, step: 1, unit: ' px' },
+      { key: 'haloBlur', label: '模糊', type: 'range', min: 0, max: 20, step: 0.5, unit: ' px' },
+      { key: 'haloCenterX', label: '中心 X', type: 'range', min: 0, max: 24, step: 0.5, unit: ' px', hint: '箭头图标中心' },
+      { key: 'haloCenterY', label: '中心 Y', type: 'range', min: 0, max: 24, step: 0.5, unit: ' px', hint: '箭头图标中心' },
+    ],
+  },
+  {
+    title: '呼吸动画 Breathing',
+    fields: [
+      { key: 'breatheDuration', label: '周期', type: 'range', min: 0.5, max: 6, step: 0.1, unit: ' s' },
+      { key: 'breatheScaleMin', label: '缩放下限', type: 'range', min: 0.5, max: 1.5, step: 0.01 },
+      { key: 'breatheScaleMax', label: '缩放上限', type: 'range', min: 0.5, max: 2, step: 0.01 },
+      { key: 'breatheOpacityMin', label: '透明度下限', type: 'range', min: 0, max: 1, step: 0.01 },
+      { key: 'breatheOpacityMax', label: '透明度上限', type: 'range', min: 0, max: 1, step: 0.01 },
+    ],
+  },
+  {
+    title: '色相流动 Hue Cycle',
+    fields: [
+      { key: 'hueCycleMs', label: '周期', type: 'range', min: 1000, max: 20000, step: 500, unit: ' ms' },
+    ],
+  },
+]
 
 // The injected <style> text for a given config.
 function buildCss(cfg) {
@@ -159,9 +236,14 @@ function tipOffset(cfg) {
 
     const CONFIG = { ...DEFAULT_CONFIG };
 
+    function fmt(v) {
+      if (typeof v !== 'number') return String(v);
+      if (Number.isInteger(v)) return String(v);
+      return String(parseFloat(v.toFixed(2)));
+    }
+
     // ── 注入样式 ──
     const style = document.createElement('style');
-    style.textContent = buildCss(CONFIG);
     document.head.appendChild(style);
 
     // ── 自定义箭头 ──
@@ -171,7 +253,23 @@ function tipOffset(cfg) {
     arrow.innerHTML = arrowMarkup(CONFIG);
     document.body.appendChild(arrow);
     const halo = arrow.querySelector('.halo');
+    const path = arrow.querySelector('path');
 
+    function applySvg(cfg) {
+      path.setAttribute('fill', cfg.arrowFill);
+      path.setAttribute('fill-opacity', String(cfg.arrowFillOpacity));
+      path.setAttribute('stroke', cfg.arrowStroke);
+      path.setAttribute('stroke-opacity', String(cfg.arrowStrokeOpacity));
+      path.setAttribute('stroke-width', String(cfg.arrowStrokeWidth));
+    }
+
+    function applyConfig() {
+      style.textContent = buildCss(CONFIG);
+      applySvg(CONFIG);
+    }
+    applyConfig();
+
+    // ── 跟手 + 色相流动 ──
     let mouseX = -9999;
     let mouseY = -9999;
 
@@ -192,6 +290,81 @@ function tipOffset(cfg) {
 
     window.addEventListener('mousemove', onMove, { passive: true });
     tick();
+
+    // ── 参数调节面板（与设置面板共用同一份 PARAM_GROUPS） ───────────────────
+    const panel = document.getElementById('panel');
+    const controls = [];
+
+    PARAM_GROUPS.forEach(group => {
+      const sec = document.createElement('section');
+      sec.className = 'group';
+
+      const title = document.createElement('h4');
+      title.className = 'group-title';
+      title.textContent = group.title;
+      sec.appendChild(title);
+
+      group.fields.forEach(f => {
+        const field = document.createElement('label');
+        field.className = 'field';
+
+        const name = document.createElement('span');
+        name.className = 'field-name';
+        const nameText = document.createElement('span');
+        nameText.className = 'field-label';
+        nameText.textContent = f.label;
+        name.appendChild(nameText);
+        if (f.hint) {
+          const hint = document.createElement('span');
+          hint.className = 'field-hint';
+          hint.textContent = f.hint;
+          name.appendChild(hint);
+        }
+
+        const value = document.createElement('span');
+        value.className = 'field-value';
+
+        const top = document.createElement('span');
+        top.className = 'field-top';
+        top.appendChild(name);
+        top.appendChild(value);
+        field.appendChild(top);
+
+        const input = document.createElement('input');
+        input.type = f.type === 'color' ? 'color' : 'range';
+        if (input.type === 'range') {
+          input.min = String(f.min);
+          input.max = String(f.max);
+          input.step = String(f.step);
+        }
+        input.value = String(CONFIG[f.key]);
+        input.addEventListener('input', () => {
+          CONFIG[f.key] = f.type === 'color' ? input.value : Number(input.value);
+          value.textContent = f.type === 'color' ? input.value : fmt(CONFIG[f.key]) + (f.unit || '');
+          applyConfig();
+        });
+        field.appendChild(input);
+
+        value.textContent = f.type === 'color' ? CONFIG[f.key] : fmt(CONFIG[f.key]) + (f.unit || '');
+        sec.appendChild(field);
+        controls.push({ f, input, value });
+      });
+
+      panel.appendChild(sec);
+    });
+
+    const reset = document.createElement('button');
+    reset.className = 'reset';
+    reset.textContent = '恢复默认';
+    reset.addEventListener('click', () => {
+      Object.assign(CONFIG, DEFAULT_CONFIG);
+      applyConfig();
+      controls.forEach(c => {
+        c.input.value = String(CONFIG[c.f.key]);
+        c.value.textContent = c.f.type === 'color' ? CONFIG[c.f.key] : fmt(CONFIG[c.f.key]) + (c.f.unit || '');
+      });
+    });
+    panel.appendChild(reset);
 
     // 停止并清理（调试用）
     window.__cursorGlowStop = function () {

@@ -51,6 +51,48 @@ const DEFAULT_CONFIG = {
   hueCycleMs: 6000,
 }
 
+// Parameter schema for the settings UI. The plugin's React settings panel and
+// the standalone preview both render their controls from this single list, so
+// the adjustable parameters (labels, ranges, steps, units) can never drift.
+const PARAM_GROUPS = [
+  {
+    title: '箭头 Arrow',
+    fields: [
+      { key: 'arrowSize', label: '尺寸', type: 'range', min: 12, max: 48, step: 1, unit: ' px' },
+      { key: 'arrowFill', label: '填充色', type: 'color' },
+      { key: 'arrowFillOpacity', label: '填充透明度', type: 'range', min: 0, max: 1, step: 0.01 },
+      { key: 'arrowStroke', label: '描边色', type: 'color' },
+      { key: 'arrowStrokeOpacity', label: '描边透明度', type: 'range', min: 0, max: 1, step: 0.01 },
+      { key: 'arrowStrokeWidth', label: '描边粗细', type: 'range', min: 0.5, max: 8, step: 0.5, unit: ' px' },
+    ],
+  },
+  {
+    title: '光晕 Halo',
+    fields: [
+      { key: 'haloSize', label: '直径', type: 'range', min: 12, max: 80, step: 1, unit: ' px' },
+      { key: 'haloBlur', label: '模糊', type: 'range', min: 0, max: 20, step: 0.5, unit: ' px' },
+      { key: 'haloCenterX', label: '中心 X', type: 'range', min: 0, max: 24, step: 0.5, unit: ' px', hint: '箭头图标中心' },
+      { key: 'haloCenterY', label: '中心 Y', type: 'range', min: 0, max: 24, step: 0.5, unit: ' px', hint: '箭头图标中心' },
+    ],
+  },
+  {
+    title: '呼吸动画 Breathing',
+    fields: [
+      { key: 'breatheDuration', label: '周期', type: 'range', min: 0.5, max: 6, step: 0.1, unit: ' s' },
+      { key: 'breatheScaleMin', label: '缩放下限', type: 'range', min: 0.5, max: 1.5, step: 0.01 },
+      { key: 'breatheScaleMax', label: '缩放上限', type: 'range', min: 0.5, max: 2, step: 0.01 },
+      { key: 'breatheOpacityMin', label: '透明度下限', type: 'range', min: 0, max: 1, step: 0.01 },
+      { key: 'breatheOpacityMax', label: '透明度上限', type: 'range', min: 0, max: 1, step: 0.01 },
+    ],
+  },
+  {
+    title: '色相流动 Hue Cycle',
+    fields: [
+      { key: 'hueCycleMs', label: '周期', type: 'range', min: 1000, max: 20000, step: 500, unit: ' ms' },
+    ],
+  },
+]
+
 // The injected <style> text for a given config.
 function buildCss(cfg) {
   return [
@@ -305,42 +347,19 @@ function tipOffset(cfg) {
 				setCfg(defaults);
 			};
 
+			const renderField = f => f.type === 'color'
+				? h(ColorField, { key: f.key, label: f.label, value: cfg[f.key], onChange: v => update({ [f.key]: v }) })
+				: h(NumberField, { key: f.key, label: f.label, value: cfg[f.key], min: f.min, max: f.max, step: f.step, unit: f.unit, hint: f.hint, onChange: v => update({ [f.key]: v }) });
+
 			return h('div', { className: 'cg-section' },
 				h('h3', { className: 'cg-h' }, '光标光效'),
 				h('p', { className: 'cg-desc' }, '调整自定义光标的箭头、光晕与呼吸动画参数。改动即时生效，并自动保存到本机（localStorage）。'),
-
-				h('section', { className: 'cg-group' },
-					h('h4', { className: 'cg-group-title' }, '箭头 Arrow'),
-					h(NumberField, { label: '尺寸', value: cfg.arrowSize, min: 12, max: 48, step: 1, unit: ' px', onChange: v => update({ arrowSize: v }) }),
-					h(ColorField, { label: '填充色', value: cfg.arrowFill, onChange: v => update({ arrowFill: v }) }),
-					h(NumberField, { label: '填充透明度', value: cfg.arrowFillOpacity, min: 0, max: 1, step: 0.01, onChange: v => update({ arrowFillOpacity: v }) }),
-					h(ColorField, { label: '描边色', value: cfg.arrowStroke, onChange: v => update({ arrowStroke: v }) }),
-					h(NumberField, { label: '描边透明度', value: cfg.arrowStrokeOpacity, min: 0, max: 1, step: 0.01, onChange: v => update({ arrowStrokeOpacity: v }) }),
-					h(NumberField, { label: '描边粗细', value: cfg.arrowStrokeWidth, min: 0.5, max: 8, step: 0.5, unit: ' px', onChange: v => update({ arrowStrokeWidth: v }) }),
+				PARAM_GROUPS.map(group =>
+					h('section', { className: 'cg-group', key: group.title },
+						h('h4', { className: 'cg-group-title' }, group.title),
+						group.fields.map(renderField),
+					),
 				),
-
-				h('section', { className: 'cg-group' },
-					h('h4', { className: 'cg-group-title' }, '光晕 Halo'),
-					h(NumberField, { label: '直径', value: cfg.haloSize, min: 12, max: 80, step: 1, unit: ' px', onChange: v => update({ haloSize: v }) }),
-					h(NumberField, { label: '模糊', value: cfg.haloBlur, min: 0, max: 20, step: 0.5, unit: ' px', onChange: v => update({ haloBlur: v }) }),
-					h(NumberField, { label: '中心 X', value: cfg.haloCenterX, min: 0, max: 24, step: 0.5, unit: ' px', hint: '箭头图标中心', onChange: v => update({ haloCenterX: v }) }),
-					h(NumberField, { label: '中心 Y', value: cfg.haloCenterY, min: 0, max: 24, step: 0.5, unit: ' px', hint: '箭头图标中心', onChange: v => update({ haloCenterY: v }) }),
-				),
-
-				h('section', { className: 'cg-group' },
-					h('h4', { className: 'cg-group-title' }, '呼吸动画 Breathing'),
-					h(NumberField, { label: '周期', value: cfg.breatheDuration, min: 0.5, max: 6, step: 0.1, unit: ' s', onChange: v => update({ breatheDuration: v }) }),
-					h(NumberField, { label: '缩放下限', value: cfg.breatheScaleMin, min: 0.5, max: 1.5, step: 0.01, onChange: v => update({ breatheScaleMin: v }) }),
-					h(NumberField, { label: '缩放上限', value: cfg.breatheScaleMax, min: 0.5, max: 2, step: 0.01, onChange: v => update({ breatheScaleMax: v }) }),
-					h(NumberField, { label: '透明度下限', value: cfg.breatheOpacityMin, min: 0, max: 1, step: 0.01, onChange: v => update({ breatheOpacityMin: v }) }),
-					h(NumberField, { label: '透明度上限', value: cfg.breatheOpacityMax, min: 0, max: 1, step: 0.01, onChange: v => update({ breatheOpacityMax: v }) }),
-				),
-
-				h('section', { className: 'cg-group' },
-					h('h4', { className: 'cg-group-title' }, '色相流动 Hue Cycle'),
-					h(NumberField, { label: '周期', value: cfg.hueCycleMs, min: 1000, max: 20000, step: 500, unit: ' ms', onChange: v => update({ hueCycleMs: v }) }),
-				),
-
 				h('button', { className: 'cg-reset', onClick: reset }, '恢复默认'),
 			);
 		}

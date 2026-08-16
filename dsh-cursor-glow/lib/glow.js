@@ -33,6 +33,48 @@ export const DEFAULT_CONFIG = {
   hueCycleMs: 6000,
 }
 
+// Parameter schema for the settings UI. The plugin's React settings panel and
+// the standalone preview both render their controls from this single list, so
+// the adjustable parameters (labels, ranges, steps, units) can never drift.
+export const PARAM_GROUPS = [
+  {
+    title: '箭头 Arrow',
+    fields: [
+      { key: 'arrowSize', label: '尺寸', type: 'range', min: 12, max: 48, step: 1, unit: ' px' },
+      { key: 'arrowFill', label: '填充色', type: 'color' },
+      { key: 'arrowFillOpacity', label: '填充透明度', type: 'range', min: 0, max: 1, step: 0.01 },
+      { key: 'arrowStroke', label: '描边色', type: 'color' },
+      { key: 'arrowStrokeOpacity', label: '描边透明度', type: 'range', min: 0, max: 1, step: 0.01 },
+      { key: 'arrowStrokeWidth', label: '描边粗细', type: 'range', min: 0.5, max: 8, step: 0.5, unit: ' px' },
+    ],
+  },
+  {
+    title: '光晕 Halo',
+    fields: [
+      { key: 'haloSize', label: '直径', type: 'range', min: 12, max: 80, step: 1, unit: ' px' },
+      { key: 'haloBlur', label: '模糊', type: 'range', min: 0, max: 20, step: 0.5, unit: ' px' },
+      { key: 'haloCenterX', label: '中心 X', type: 'range', min: 0, max: 24, step: 0.5, unit: ' px', hint: '箭头图标中心' },
+      { key: 'haloCenterY', label: '中心 Y', type: 'range', min: 0, max: 24, step: 0.5, unit: ' px', hint: '箭头图标中心' },
+    ],
+  },
+  {
+    title: '呼吸动画 Breathing',
+    fields: [
+      { key: 'breatheDuration', label: '周期', type: 'range', min: 0.5, max: 6, step: 0.1, unit: ' s' },
+      { key: 'breatheScaleMin', label: '缩放下限', type: 'range', min: 0.5, max: 1.5, step: 0.01 },
+      { key: 'breatheScaleMax', label: '缩放上限', type: 'range', min: 0.5, max: 2, step: 0.01 },
+      { key: 'breatheOpacityMin', label: '透明度下限', type: 'range', min: 0, max: 1, step: 0.01 },
+      { key: 'breatheOpacityMax', label: '透明度上限', type: 'range', min: 0, max: 1, step: 0.01 },
+    ],
+  },
+  {
+    title: '色相流动 Hue Cycle',
+    fields: [
+      { key: 'hueCycleMs', label: '周期', type: 'range', min: 1000, max: 20000, step: 500, unit: ' ms' },
+    ],
+  },
+]
+
 // The injected <style> text for a given config.
 export function buildCss(cfg) {
   return [
