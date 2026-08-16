@@ -1,0 +1,7 @@
+# dsh-git-graph bundle patch: one host row over the web profile.
+# The host half registers the /gitgraph/api HTTP routes; the client half is
+# discovered through package.json's `dsh.client` declaration and served at
+# /plugins/dsh-git-graph/client.js.
+- insert:
+    - id: git-graph
+      name: dsh-git-graph

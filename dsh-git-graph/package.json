@@ -1,0 +1,40 @@
+{
+  "name": "dsh-git-graph",
+  "version": "0.1.0",
+  "description": "DSH web plugin: visualize the git commit graph (branches/merges/tags) of the session repository, like the VS Code Git Graph extension.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
+    }
+  },
+  "files": [
+    "lib/index.js",
+    "lib/git.js",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "git",
+    "git-graph",
+    "visualization"
+  ],
+  "license": "MIT"
+}
