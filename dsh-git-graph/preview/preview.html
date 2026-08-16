@@ -23,6 +23,7 @@
     .btn { font: inherit; font-size: 12px; color: #e6e6e6; background: #262a33; border: 1px solid rgba(255,255,255,.1); border-radius: 6px; padding: 4px 12px; cursor: pointer; white-space: nowrap; }
     .btn:hover { background: rgba(255,255,255,.06); }
     .btn.primary { background: #4c8dff; border-color: transparent; color: #fff; }
+    .btn.icon { padding: 0; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
 
     .body { flex: 1; display: flex; min-height: 0; }
     .graph-col { flex: 1; display: flex; min-width: 0; min-height: 0; overflow: auto; border-right: 1px solid rgba(255,255,255,.08); }
@@ -70,7 +71,7 @@
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" fill="currentColor" d="M13.0762 1.37207C14.0846 1.37228 14.9021 2.19077 14.9023 3.19922C14.9022 4.20772 14.0847 5.02518 13.0762 5.02539C12.2967 5.02539 11.6325 4.53691 11.3701 3.84961H4.35547C4.79397 4.26458 5.15861 4.7644 5.41699 5.33496L7.10645 9.06738C7.88526 10.7875 9.55104 11.9228 11.4189 12.0371C11.7085 11.4109 12.3411 10.9756 13.0762 10.9756C14.0843 10.9759 14.9023 11.7936 14.9023 12.8018C14.9023 13.81 14.0843 14.6277 13.0762 14.6279C12.2534 14.6279 11.5574 14.0832 11.3291 13.335C8.9868 13.1879 6.89981 11.7612 5.92285 9.60352L4.23242 5.87109C3.67503 4.64033 2.44878 3.84961 1.09766 3.84961V2.54883C1.10665 2.54883 1.11601 2.54975 1.125 2.5498L11.3701 2.54883C11.6326 1.86151 12.2969 1.37207 13.0762 1.37207ZM13.0762 12.2764C12.7858 12.2764 12.5508 12.5114 12.5508 12.8018C12.5508 13.0921 12.7858 13.3281 13.0762 13.3281C13.3664 13.3279 13.6025 13.092 13.6025 12.8018C13.6025 12.5115 13.3664 12.2766 13.0762 12.2764ZM13.0762 2.67285C12.7855 2.67285 12.55 2.90861 12.5498 3.19922C12.5499 3.48987 12.7855 3.72559 13.0762 3.72559C13.3667 3.72538 13.6024 3.48975 13.6025 3.19922C13.6023 2.90874 13.3666 2.67306 13.0762 2.67285Z"/></svg>
         Git Graph
       </span>
-      <input class="input path" value="demo-repo（模拟数据）" spellcheck="false" disabled />
+      <input class="input path" value="demo-repo（模拟数据）" spellcheck="false" readonly title="仓库路径" />
       <select class="input count" id="countSel" title="提交数量上限" onchange="render()">
         <option value="0">全部</option>
         <option value="100">最近 100</option>
@@ -79,7 +80,9 @@
         <option value="1000">最近 1000</option>
         <option value="2000">最近 2000</option>
       </select>
-      <button class="btn primary" onclick="render()">Refresh</button>
+      <button class="btn primary icon" onclick="render()" title="刷新" aria-label="刷新">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M7.92136 0.349152C10.3744 0.349234 12.5564 1.5052 13.9557 3.29894L15.1281 2.12759C15.3303 1.92546 15.6767 2.06943 15.6767 2.35538V5.53923C15.6766 5.71626 15.5329 5.85976 15.3559 5.86002H12.171C11.8854 5.8597 11.7426 5.51465 11.9443 5.31249L12.9641 4.29056C11.8237 2.74305 9.98908 1.74106 7.92136 1.74097C4.46436 1.74097 1.66233 4.543 1.66233 8C1.66233 11.457 4.46436 14.259 7.92136 14.259C11.3782 14.2589 14.1804 11.4569 14.1804 8H15.5722C15.5722 12.2251 12.1465 15.6507 7.92136 15.6508C3.69614 15.6508 0.270508 12.2252 0.270508 8C0.270508 3.77478 3.69614 0.349152 7.92136 0.349152Z"/></svg>
+      </button>
       <span class="hint">这是独立预览页，使用内置模拟提交数据；点任意提交看详情。</span>
     </div>
     <div class="body">
