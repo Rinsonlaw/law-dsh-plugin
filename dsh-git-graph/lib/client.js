@@ -255,46 +255,51 @@ window.__ModuleLoader__.load({
       const n = rows.length
       const top = Array.from({ length: n }, () => new Map())
       const bottom = Array.from({ length: n }, () => new Map())
+      const elbows = Array.from({ length: n }, () => [])
       rows.forEach((c, i) => {
         c.parents.forEach((p, pi) => {
           const rp = rowOf.get(p)
           if (rp === undefined) return
           const pc = c.parentCols[pi]
-          const color = pi === 0
-            ? (colorOf.get(c.hash) ?? FALLBACK_COLOR)
-            : (colorOf.get(p) ?? FALLBACK_COLOR)
           if (pc === c.col) {
-            // first-parent lane: straight down
+            // first parent, same column: straight lane down
+            const color = colorOf.get(c.hash) ?? FALLBACK_COLOR
             bottom[i].set(pc, color)
             for (let r = i + 1; r < rp; r++) { top[r].set(pc, color); bottom[r].set(pc, color) }
             top[rp].set(pc, color)
+          } else if (pi === 0) {
+            // split: child lane continues UP from the parent. Vertical in the
+            // child's column; the horizontal elbow sits in the PARENT's row and
+            // turns right-then-up toward the child.
+            const color = colorOf.get(c.hash) ?? FALLBACK_COLOR
+            bottom[i].set(c.col, color)
+            for (let r = i + 1; r < rp; r++) { top[r].set(c.col, color); bottom[r].set(c.col, color) }
+            elbows[rp].push({ x1: pc, x2: c.col, color, up: true })
           } else {
-            // merge: the commit's own lane continues straight (first parent);
-            // the elbow (drawn separately) branches off horizontally, and the
-            // merged parent's lane continues below this row. No bottom line is
-            // drawn in the parent column here — the elbow owns that segment.
-            bottom[i].set(c.col, colorOf.get(c.hash) ?? FALLBACK_COLOR)
+            // merge: vertical continues down the merged parent's column; the
+            // horizontal elbow sits in THIS row and turns right-then-down.
+            const color = colorOf.get(p) ?? FALLBACK_COLOR
             for (let r = i + 1; r < rp; r++) { top[r].set(pc, color); bottom[r].set(pc, color) }
             top[rp].set(pc, color)
+            elbows[i].push({ x1: c.col, x2: pc, color, up: false })
           }
         })
       })
-      return { top, bottom }
+      return { top, bottom, elbows }
     }
 
-    /**
-     * One row's merge/split elbow: horizontal at the node's level, branching
-     * off the node's side, then rounded corner down to the row bottom.
-     */
-    function elbowSlice(x1, x2, color) {
+    /** One row's elbow: horizontal at the node's level, then rounded corner up or down. */
+    function elbowSlice(x1, x2, color, up) {
       const dir = x2 > x1 ? 1 : -1
       const y = ROW_H / 2
       const r = Math.max(2, Math.min(CORNER_R, Math.abs(x2 - x1) / 2))
-      return `<path d="M ${x1 + dir * NODE_R} ${y} L ${x2 - dir * r} ${y} Q ${x2} ${y} ${x2} ${y + r} L ${x2} ${ROW_H}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`
+      const endY = up ? 0 : ROW_H
+      const qY = up ? y - r : y + r
+      return `<path d="M ${x1 + dir * NODE_R} ${y} L ${x2 - dir * r} ${y} Q ${x2} ${y} ${x2} ${qY} L ${x2} ${endY}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`
     }
 
-    /** The graph slice (lane lines + node + elbow) for one commit row. */
-    function rowSlice(c, i, lanes, colorOf, maxCol, rowOf) {
+    /** The graph slice (lane lines + node + elbows) for one commit row. */
+    function rowSlice(c, i, lanes, colorOf, maxCol) {
       const w = (maxCol + 1) * COL_W + PAD_X * 2
       const cx = col => PAD_X + col * COL_W + COL_W / 2
       const parts = [`<svg class="gg-slice" width="${w}" height="${ROW_H}" viewBox="0 0 ${w} ${ROW_H}" style="position:static;width:${w}px;height:${ROW_H}px;display:block;flex:none;fill:none;stroke:none">`]
@@ -304,17 +309,9 @@ window.__ModuleLoader__.load({
         if (tc) parts.push(`<line x1="${cx(col)}" y1="0" x2="${cx(col)}" y2="${ROW_H / 2}" stroke="${tc}" stroke-width="2" stroke-linecap="round"/>`)
         if (bc) parts.push(`<line x1="${cx(col)}" y1="${ROW_H / 2}" x2="${cx(col)}" y2="${ROW_H}" stroke="${bc}" stroke-width="2" stroke-linecap="round"/>`)
       }
-      c.parents.forEach((p, pi) => {
-        const rp = rowOf.get(p)
-        if (rp === undefined) return
-        const pc = c.parentCols[pi]
-        if (pc !== c.col) {
-          // Split (first parent, branch-off) uses the commit's color; merge
-          // (later parents) uses the merged parent's color.
-          const color = pi === 0 ? (colorOf.get(c.hash) ?? FALLBACK_COLOR) : (colorOf.get(p) ?? FALLBACK_COLOR)
-          parts.push(elbowSlice(cx(c.col), cx(pc), color))
-        }
-      })
+      for (const el of lanes.elbows[i]) {
+        parts.push(elbowSlice(cx(el.x1), cx(el.x2), el.color, el.up))
+      }
       parts.push(`<circle cx="${cx(c.col)}" cy="${ROW_H / 2}" r="${NODE_R}" fill="${colorOf.get(c.hash) ?? FALLBACK_COLOR}" stroke="rgba(0,0,0,.35)" stroke-width="1"/>`)
       parts.push('</svg>')
       return parts.join('')
@@ -329,7 +326,7 @@ window.__ModuleLoader__.load({
         const sel = c.hash === selectedHash ? ' sel' : ''
         return (
           `<div class="gg-row${sel}" data-hash="${esc(c.hash)}" style="height:${ROW_H}px">` +
-          rowSlice(c, i, lanes, colorOf, maxCol, rowOf) +
+          rowSlice(c, i, lanes, colorOf, maxCol) +
           refs +
           `<span class="gg-subject">${esc(c.subject || '(no subject)')}</span>` +
           `<span class="gg-meta">${esc(meta)}</span>` +

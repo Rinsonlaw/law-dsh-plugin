@@ -190,33 +190,42 @@
     const n = rows.length
     const top = Array.from({ length: n }, () => new Map())
     const bottom = Array.from({ length: n }, () => new Map())
+    const elbows = Array.from({ length: n }, () => [])
     rows.forEach((c, i) => {
       c.parents.forEach((p, pi) => {
         const rp = rowOf.get(p); if (rp === undefined) return
         const pc = c.parentCols[pi]
-        const color = pi === 0 ? (colorOf.get(c.hash) ?? FALLBACK_COLOR) : (colorOf.get(p) ?? FALLBACK_COLOR)
         if (pc === c.col) {
+          const color = colorOf.get(c.hash) ?? FALLBACK_COLOR
           bottom[i].set(pc, color)
           for (let r = i + 1; r < rp; r++) { top[r].set(pc, color); bottom[r].set(pc, color) }
           top[rp].set(pc, color)
+        } else if (pi === 0) {
+          const color = colorOf.get(c.hash) ?? FALLBACK_COLOR
+          bottom[i].set(c.col, color)
+          for (let r = i + 1; r < rp; r++) { top[r].set(c.col, color); bottom[r].set(c.col, color) }
+          elbows[rp].push({ x1: pc, x2: c.col, color, up: true })
         } else {
-          bottom[i].set(c.col, colorOf.get(c.hash) ?? FALLBACK_COLOR)
+          const color = colorOf.get(p) ?? FALLBACK_COLOR
           for (let r = i + 1; r < rp; r++) { top[r].set(pc, color); bottom[r].set(pc, color) }
           top[rp].set(pc, color)
+          elbows[i].push({ x1: c.col, x2: pc, color, up: false })
         }
       })
     })
-    return { top, bottom }
+    return { top, bottom, elbows }
   }
 
-  function elbowSlice(x1, x2, color) {
+  function elbowSlice(x1, x2, color, up) {
     const dir = x2 > x1 ? 1 : -1
     const y = ROW_H / 2
     const r = Math.max(2, Math.min(CORNER_R, Math.abs(x2 - x1) / 2))
-    return `<path d="M ${x1 + dir * NODE_R} ${y} L ${x2 - dir * r} ${y} Q ${x2} ${y} ${x2} ${y + r} L ${x2} ${ROW_H}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`
+    const endY = up ? 0 : ROW_H
+    const qY = up ? y - r : y + r
+    return `<path d="M ${x1 + dir * NODE_R} ${y} L ${x2 - dir * r} ${y} Q ${x2} ${y} ${x2} ${qY} L ${x2} ${endY}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`
   }
 
-  function rowSlice(c, i, lanes, colorOf, maxCol, rowOf) {
+  function rowSlice(c, i, lanes, colorOf, maxCol) {
     const w = (maxCol + 1) * COL_W + PAD_X * 2
     const cx = col => PAD_X + col * COL_W + COL_W / 2
     const parts = [`<svg class="slice" width="${w}" height="${ROW_H}" viewBox="0 0 ${w} ${ROW_H}" style="position:static;width:${w}px;height:${ROW_H}px;display:block;flex:none;fill:none;stroke:none">`]
@@ -226,14 +235,9 @@
       if (tc) parts.push(`<line x1="${cx(col)}" y1="0" x2="${cx(col)}" y2="${ROW_H / 2}" stroke="${tc}" stroke-width="2" stroke-linecap="round"/>`)
       if (bc) parts.push(`<line x1="${cx(col)}" y1="${ROW_H / 2}" x2="${cx(col)}" y2="${ROW_H}" stroke="${bc}" stroke-width="2" stroke-linecap="round"/>`)
     }
-    c.parents.forEach((p, pi) => {
-      const rp = rowOf.get(p); if (rp === undefined) return
-      const pc = c.parentCols[pi]
-      if (pc !== c.col) {
-        const color = pi === 0 ? (colorOf.get(c.hash) ?? FALLBACK_COLOR) : (colorOf.get(p) ?? FALLBACK_COLOR)
-        parts.push(elbowSlice(cx(c.col), cx(pc), color))
-      }
-    })
+    for (const el of lanes.elbows[i]) {
+      parts.push(elbowSlice(cx(el.x1), cx(el.x2), el.color, el.up))
+    }
     parts.push(`<circle cx="${cx(c.col)}" cy="${ROW_H / 2}" r="${NODE_R}" fill="${colorOf.get(c.hash) ?? FALLBACK_COLOR}" stroke="rgba(0,0,0,.35)" stroke-width="1"/>`)
     parts.push('</svg>')
     return parts.join('')
@@ -246,7 +250,7 @@
       const sel = c.hash === selectedHash ? ' sel' : ''
       return (
         `<div class="row${sel}" data-hash="${esc(c.hash)}" style="height:${ROW_H}px">` +
-        rowSlice(c, i, lanes, colorOf, maxCol, rowOf) +
+        rowSlice(c, i, lanes, colorOf, maxCol) +
         refsHtml(c.refs) +
         `<span class="subject">${esc(c.subject)}</span>` +
         `<span class="meta">${esc(meta)}</span>` +
