@@ -34,7 +34,7 @@ window.__ModuleLoader__.load({
       '.gg-svg{flex:none;display:block;position:static;width:auto;height:auto}',
       '.gg-panel svg,.gg-overlay svg,.gg-toggle svg{position:static;width:auto;height:auto;flex:none}',
       '.gg-rows{flex:none;display:flex;flex-direction:column}',
-      '.gg-row{display:flex;align-items:center;gap:6px;padding:0 10px 0 4px;cursor:pointer;white-space:nowrap;box-sizing:border-box;border-left:2px solid transparent;line-height:1;flex:none;overflow:hidden}',
+      '.gg-row{display:flex;align-items:center;gap:6px;padding:0 10px 0 4px;cursor:pointer;white-space:nowrap;box-sizing:border-box;border-left:2px solid transparent;flex:none}',
       '.gg-row:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary,#e6e6e6) 5%,transparent)}',
       '.gg-row.sel{background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#4c8dff) 14%,transparent);border-left-color:var(--dsw-alias-state-business-primary,#4c8dff)}',
       '.gg-hash{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b94a7)}',
