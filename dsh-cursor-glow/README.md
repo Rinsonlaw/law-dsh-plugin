@@ -6,7 +6,7 @@
 
 | 文件 | 作用 |
 |---|---|
-| `lib/client.js` | 浏览器端光效代码（**所有可调参数都在这里**） |
+| `lib/client.js` | 浏览器端光效代码 + 设置面板（参数默认值在这里，日常调参走设置页） |
 | `lib/index.js` | host 端挂载点（空实现，无需改动） |
 | `package.json` | 插件声明（`dsh.client` 注册客户端入口） |
 | `cordis.patch.yml` | bundle 挂载声明 |
@@ -17,9 +17,11 @@
 > - `preview.js` 是普通 IIFE，浏览器可直接运行（`preview.html` 引用它）
 > - `client.js` 包装在 DSH 模块加载器里，供插件加载
 >
-> 改参数时记得**两边同步**。
+> 改默认值时记得**两边同步**（`preview.js` 只影响独立预览页）。
 
-## 可调参数（`lib/client.js` 顶部的 `CONFIG` 对象）
+## 设置面板
+
+本插件在 DSH Web GUI 的「设置」里注册了一个 **光标光效** 标签页，所有参数都能在界面里实时调整，改动即时生效并自动保存到 `localStorage`（键 `dsh-cursor-glow:config`）。下方列出的是可调参数及其默认值（默认值定义在 `lib/client.js` 顶部的 `DEFAULT_CONFIG` 对象）。
 
 ### 箭头
 
@@ -50,14 +52,19 @@
 
 ## 如何修改并生效
 
-1. 编辑 `lib/client.js` 里的 `CONFIG` 参数（`preview/preview.js` 同步改）
-2. 复制到已安装位置：
-   ```bash
-   cp -R /Users/law/Documents/code/law-skills/dsh-cursor-glow \
-         /Users/law/.dsh/profiles/web/node_modules/
-   ```
-3. **重启 dsh web**（在启动它的终端按 `Ctrl+C` 再重新运行 `dsh web`）
-4. 浏览器刷新 `http://127.0.0.1:3080`
+- **日常调参**：直接打开「设置 → 光标光效」标签页即可，无需改代码。
+- **改默认值 / 改代码后重新部署**：
+
+  1. 编辑 `lib/client.js`（`preview/preview.js` 同步改，仅影响预览页）
+  2. 复制到已安装位置：
+
+     ```bash
+     cp -R /Users/law/Documents/code/law-dsh-plugin/dsh-cursor-glow \
+          /Users/law/.dsh/profiles/web/node_modules/
+     ```
+
+  3. **重启 dsh web**（在启动它的终端按 `Ctrl+C` 再重新运行 `dsh web`）
+  4. 浏览器刷新 `http://127.0.0.1:3080`
 
 ## 卸载
 

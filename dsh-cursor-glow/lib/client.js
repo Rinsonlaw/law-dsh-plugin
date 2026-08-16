@@ -1,6 +1,7 @@
 // Client half of the dsh-cursor-glow plugin.
-// Registered into the shell's module loader; `apply` runs during boot and
-// injects the cursor-glow effect (breathing rainbow halo arrow).
+// Injects the breathing rainbow-halo cursor effect AND registers a
+// "光标光效" settings section where every parameter can be adjusted live.
+// Changes apply immediately and persist to localStorage.
 window.__ModuleLoader__.load({
 	id: "dsh-cursor-glow",
 	factory: (require) => {
@@ -8,107 +9,322 @@ window.__ModuleLoader__.load({
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 
-		function apply(ctx) {
-			// ---- cursor glow effect (inject once) ----
-			(function () {
-				if (window.__cursorGlowInjected) return;
-				window.__cursorGlowInjected = true;
+		const React = require('react');
+		const { createElement: h, useState } = React;
 
-				const CONFIG = {
-					arrowSize: 24,
-					arrowFill: '#000000',
-					arrowStroke: '#ffffff',
-					arrowStrokeWidth: 2,
-					arrowFillOpacity: 0.4,
-					arrowStrokeOpacity: 0.8,
+		const ARROW_PATH = 'M2 2 L16 12 L11 13 L7 19 Z';
 
-					haloSize: 28,
-					haloBlur: 6,
-					haloCenterX: 9,
-					haloCenterY: 10.5,
-					breatheDuration: 2,
-					breatheScaleMin: 0.9,
-					breatheScaleMax: 1.15,
-					breatheOpacityMin: 0.52,
-					breatheOpacityMax: 0.8,
-					hueCycleMs: 6000,
-				};
+		// ---- default parameters (mirrors the previous hard-coded CONFIG) ----
+		const DEFAULT_CONFIG = {
+			arrowSize: 24,
+			arrowFill: '#000000',
+			arrowStroke: '#ffffff',
+			arrowStrokeWidth: 2,
+			arrowFillOpacity: 0.4,
+			arrowStrokeOpacity: 0.8,
 
-				const ARROW_PATH = 'M2 2 L16 12 L11 13 L7 19 Z';
+			haloSize: 28,
+			haloBlur: 6,
+			haloCenterX: 9,
+			haloCenterY: 10.5,
 
-				const style = document.createElement('style');
-				style.textContent = [
-					'html, body, * { cursor: none !important; }',
-					'#cursor-glow-arrow {',
-					'  position: fixed; top: 0; left: 0;',
-					'  pointer-events: none;',
-					'  z-index: 2147483647;',
-					'  will-change: transform;',
-					'}',
-					'#cursor-glow-arrow .halo {',
-					'  position: absolute;',
-					`  width: ${CONFIG.haloSize}px; height: ${CONFIG.haloSize}px;`,
-					`  left: ${CONFIG.haloCenterX - CONFIG.haloSize / 2}px; top: ${CONFIG.haloCenterY - CONFIG.haloSize / 2}px;`,
-					'  border-radius: 50%;',
-					`  filter: blur(${CONFIG.haloBlur}px);`,
-					`  animation: cursor-halo-breathe ${CONFIG.breatheDuration}s ease-in-out infinite;`,
-					'  z-index: 0;',
-					'}',
-					'#cursor-glow-arrow svg {',
-					'  position: relative;',
-					'  z-index: 1;',
-					'  display: block;',
-					`  width: ${CONFIG.arrowSize}px; height: ${CONFIG.arrowSize}px;`,
-					'}',
-					'@keyframes cursor-halo-breathe {',
-					`  0%, 100% { transform: scale(${CONFIG.breatheScaleMin}); opacity: ${CONFIG.breatheOpacityMin}; }`,
-					`  50%      { transform: scale(${CONFIG.breatheScaleMax}); opacity: ${CONFIG.breatheOpacityMax}; }`,
-					'}',
-				].join('\n');
-				document.head.appendChild(style);
+			breatheDuration: 2,
+			breatheScaleMin: 0.9,
+			breatheScaleMax: 1.15,
+			breatheOpacityMin: 0.52,
+			breatheOpacityMax: 0.8,
+			hueCycleMs: 6000,
+		};
 
-				const arrow = document.createElement('div');
-				arrow.id = 'cursor-glow-arrow';
-				arrow.setAttribute('aria-hidden', 'true');
-				arrow.innerHTML =
-					'<div class="halo"></div>' +
-					'<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">' +
-					`<path d="${ARROW_PATH}" fill="${CONFIG.arrowFill}" fill-opacity="${CONFIG.arrowFillOpacity}" stroke="${CONFIG.arrowStroke}" stroke-opacity="${CONFIG.arrowStrokeOpacity}" stroke-width="${CONFIG.arrowStrokeWidth}" stroke-linejoin="round"/>` +
-					'</svg>';
-				document.body.appendChild(arrow);
-				const halo = arrow.querySelector('.halo');
+		const STORAGE_KEY = 'dsh-cursor-glow:config';
 
-				let mouseX = -9999;
-				let mouseY = -9999;
+		// ---- config store (module-scoped, loaded once at apply) ----
+		let config = { ...DEFAULT_CONFIG };
 
-				function onMove(e) {
-					mouseX = e.clientX;
-					mouseY = e.clientY;
-					arrow.style.transform = `translate(${mouseX - 2}px, ${mouseY - 2}px)`;
+		function loadConfig() {
+			try {
+				const raw = window.localStorage.getItem(STORAGE_KEY);
+				if (!raw) return;
+				const parsed = JSON.parse(raw);
+				if (parsed && typeof parsed === 'object') {
+					for (const key of Object.keys(DEFAULT_CONFIG)) {
+						const want = DEFAULT_CONFIG[key];
+						const got = parsed[key];
+						if (got !== undefined && typeof got === typeof want) config[key] = got;
+					}
 				}
+			} catch (error) {
+				// ignore malformed / unavailable storage
+			}
+		}
 
-				function tick() {
-					const hue = ((performance.now() % CONFIG.hueCycleMs) / CONFIG.hueCycleMs) * 360;
-					halo.style.background =
-						`radial-gradient(circle, hsla(${hue}, 100%, 82%, 0.8), hsla(${hue}, 100%, 65%, 0.48) 45%, transparent 72%)`;
-					requestAnimationFrame(tick);
-				}
+		function saveConfig() {
+			try {
+				window.localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+			} catch (error) {
+				// ignore quota / privacy-mode failures
+			}
+		}
 
-				window.addEventListener('mousemove', onMove, { passive: true });
-				tick();
+		function setConfig(patch) {
+			config = { ...config, ...patch };
+			saveConfig();
+			applyGlowConfig(config);
+		}
 
-				window.__cursorGlowStop = function () {
-					window.removeEventListener('mousemove', onMove);
-					style.remove();
-					arrow.remove();
-					window.__cursorGlowInjected = false;
-				};
-			})();
+		// ---- cursor glow effect ----
+		let glow = null;
 
-			// dispose cleanup
-			return function () {
-				if (window.__cursorGlowStop) window.__cursorGlowStop();
+		function buildCss(cfg) {
+			return [
+				'html, body, * { cursor: none !important; }',
+				'#cursor-glow-arrow {',
+				'  position: fixed; top: 0; left: 0;',
+				'  pointer-events: none;',
+				'  z-index: 2147483647;',
+				'  will-change: transform;',
+				'}',
+				'#cursor-glow-arrow .halo {',
+				'  position: absolute;',
+				'  width: ' + cfg.haloSize + 'px; height: ' + cfg.haloSize + 'px;',
+				'  left: ' + (cfg.haloCenterX - cfg.haloSize / 2) + 'px; top: ' + (cfg.haloCenterY - cfg.haloSize / 2) + 'px;',
+				'  border-radius: 50%;',
+				'  filter: blur(' + cfg.haloBlur + 'px);',
+				'  animation: cursor-halo-breathe ' + cfg.breatheDuration + 's ease-in-out infinite;',
+				'  z-index: 0;',
+				'}',
+				'#cursor-glow-arrow svg {',
+				'  position: relative;',
+				'  z-index: 1;',
+				'  display: block;',
+				'  width: ' + cfg.arrowSize + 'px; height: ' + cfg.arrowSize + 'px;',
+				'}',
+				'@keyframes cursor-halo-breathe {',
+				'  0%, 100% { transform: scale(' + cfg.breatheScaleMin + '); opacity: ' + cfg.breatheOpacityMin + '; }',
+				'  50%      { transform: scale(' + cfg.breatheScaleMax + '); opacity: ' + cfg.breatheOpacityMax + '; }',
+				'}',
+			].join('\n');
+		}
+
+		function applySvg(cfg) {
+			if (glow === null) return;
+			const path = glow.path;
+			path.setAttribute('fill', cfg.arrowFill);
+			path.setAttribute('fill-opacity', String(cfg.arrowFillOpacity));
+			path.setAttribute('stroke', cfg.arrowStroke);
+			path.setAttribute('stroke-opacity', String(cfg.arrowStrokeOpacity));
+			path.setAttribute('stroke-width', String(cfg.arrowStrokeWidth));
+		}
+
+		function applyGlowConfig(cfg) {
+			if (glow === null) return;
+			glow.style.textContent = buildCss(cfg);
+			applySvg(cfg);
+		}
+
+		function startGlow() {
+			if (glow !== null) return;
+
+			const style = document.createElement('style');
+			style.id = 'cursor-glow-style';
+			document.head.appendChild(style);
+
+			const arrow = document.createElement('div');
+			arrow.id = 'cursor-glow-arrow';
+			arrow.setAttribute('aria-hidden', 'true');
+			arrow.innerHTML =
+				'<div class="halo"></div>' +
+				'<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">' +
+				'<path d="' + ARROW_PATH + '"/>' +
+				'</svg>';
+			document.body.appendChild(arrow);
+
+			const halo = arrow.querySelector('.halo');
+			const path = arrow.querySelector('path');
+
+			let mouseX = -9999;
+			let mouseY = -9999;
+			let rafId = 0;
+			let stopped = false;
+
+			function onMove(e) {
+				mouseX = e.clientX;
+				mouseY = e.clientY;
+				// tip of the path sits at (2,2) in the 24-unit viewBox; scale the
+				// offset so the tip stays under the pointer for any arrowSize.
+				const tip = config.arrowSize / 12;
+				arrow.style.transform = 'translate(' + (mouseX - tip) + 'px, ' + (mouseY - tip) + 'px)';
+			}
+
+			function tick() {
+				if (stopped) return;
+				const hue = ((performance.now() % config.hueCycleMs) / config.hueCycleMs) * 360;
+				halo.style.background =
+					'radial-gradient(circle, hsla(' + hue + ', 100%, 82%, 0.8), hsla(' + hue + ', 100%, 65%, 0.48) 45%, transparent 72%)';
+				rafId = requestAnimationFrame(tick);
+			}
+
+			window.addEventListener('mousemove', onMove, { passive: true });
+			rafId = requestAnimationFrame(tick);
+
+			glow = { style, arrow, halo, path, stop };
+
+			function stop() {
+				if (stopped) return;
+				stopped = true;
+				cancelAnimationFrame(rafId);
+				window.removeEventListener('mousemove', onMove);
+				style.remove();
+				arrow.remove();
+				glow = null;
+			}
+
+			applyGlowConfig(config);
+		}
+
+		function stopGlow() {
+			if (glow !== null && typeof glow.stop === 'function') glow.stop();
+		}
+
+		// ---- settings UI ----
+		const SETTINGS_CSS = [
+			'.cg-section{display:flex;flex-direction:column;gap:22px;padding:4px 0;color:var(--dsw-alias-label-primary,#e6e6e6);font-size:13px}',
+			'.cg-h{margin:0;font-size:16px;line-height:22px;font-weight:600}',
+			'.cg-desc{margin:0;font-size:12.5px;line-height:18px;color:var(--dsw-alias-label-secondary,#c9d1d9)}',
+			'.cg-group{display:flex;flex-direction:column;gap:2px}',
+			'.cg-group-title{margin:0 0 6px;font-size:13px;font-weight:600;color:var(--dsw-alias-label-primary,#e6e6e6)}',
+			'.cg-field{display:grid;grid-template-columns:minmax(96px,140px) 64px 1fr;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.06))}',
+			'.cg-field-label{display:flex;flex-direction:column;font-size:12.5px;line-height:16px;color:var(--dsw-alias-label-secondary,#c9d1d9)}',
+			'.cg-field-hint{font-size:11px;color:var(--dsw-alias-label-tertiary,#8b94a7)}',
+			'.cg-field-value{font-size:11.5px;color:var(--dsw-alias-label-tertiary,#8b94a7);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;text-align:right;white-space:nowrap}',
+			'.cg-range{width:100%;margin:0;accent-color:var(--dsw-alias-state-business-primary,#4c8dff);cursor:pointer}',
+			'.cg-color{width:100%;max-width:64px;height:28px;padding:1px 2px;border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.1));border-radius:6px;background:var(--dsw-alias-bg-layer-1,#1a1d24);cursor:pointer}',
+			'.cg-reset{align-self:flex-start;font:inherit;font-size:12.5px;color:var(--dsw-alias-label-primary,#e6e6e6);background:var(--dsw-alias-button-elevated-fill,#262a33);border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.1));border-radius:6px;padding:6px 14px;cursor:pointer}',
+			'.cg-reset:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.06))}',
+		].join('\n');
+
+		function fmt(v) {
+			if (typeof v !== 'number') return String(v);
+			if (Number.isInteger(v)) return String(v);
+			return String(parseFloat(v.toFixed(2)));
+		}
+
+		function NumberField(props) {
+			const { label, value, min, max, step, unit, hint, onChange } = props;
+			return h('label', { className: 'cg-field' },
+				h('span', { className: 'cg-field-label' },
+					label,
+					hint ? h('span', { className: 'cg-field-hint' }, hint) : null,
+				),
+				h('span', { className: 'cg-field-value' }, fmt(value) + (unit || '')),
+				h('input', {
+					className: 'cg-range',
+					type: 'range',
+					min: min,
+					max: max,
+					step: step,
+					value: value,
+					onChange: e => onChange(Number(e.target.value)),
+				}),
+			);
+		}
+
+		function ColorField(props) {
+			const { label, value, onChange } = props;
+			return h('label', { className: 'cg-field' },
+				h('span', { className: 'cg-field-label' }, label),
+				h('span', { className: 'cg-field-value' }, value),
+				h('input', {
+					className: 'cg-color',
+					type: 'color',
+					value: value,
+					onChange: e => onChange(e.target.value),
+				}),
+			);
+		}
+
+		function CursorGlowSection() {
+			const [cfg, setCfg] = useState(() => ({ ...config }));
+
+			const update = patch => {
+				setConfig(patch);
+				setCfg(prev => ({ ...prev, ...patch }));
 			};
+
+			const reset = () => {
+				const defaults = { ...DEFAULT_CONFIG };
+				setConfig(defaults);
+				setCfg(defaults);
+			};
+
+			return h('div', { className: 'cg-section' },
+				h('h3', { className: 'cg-h' }, '光标光效'),
+				h('p', { className: 'cg-desc' }, '调整自定义光标的箭头、光晕与呼吸动画参数。改动即时生效，并自动保存到本机（localStorage）。'),
+
+				h('section', { className: 'cg-group' },
+					h('h4', { className: 'cg-group-title' }, '箭头 Arrow'),
+					h(NumberField, { label: '尺寸', value: cfg.arrowSize, min: 12, max: 48, step: 1, unit: ' px', onChange: v => update({ arrowSize: v }) }),
+					h(ColorField, { label: '填充色', value: cfg.arrowFill, onChange: v => update({ arrowFill: v }) }),
+					h(NumberField, { label: '填充透明度', value: cfg.arrowFillOpacity, min: 0, max: 1, step: 0.01, onChange: v => update({ arrowFillOpacity: v }) }),
+					h(ColorField, { label: '描边色', value: cfg.arrowStroke, onChange: v => update({ arrowStroke: v }) }),
+					h(NumberField, { label: '描边透明度', value: cfg.arrowStrokeOpacity, min: 0, max: 1, step: 0.01, onChange: v => update({ arrowStrokeOpacity: v }) }),
+					h(NumberField, { label: '描边粗细', value: cfg.arrowStrokeWidth, min: 0.5, max: 8, step: 0.5, unit: ' px', onChange: v => update({ arrowStrokeWidth: v }) }),
+				),
+
+				h('section', { className: 'cg-group' },
+					h('h4', { className: 'cg-group-title' }, '光晕 Halo'),
+					h(NumberField, { label: '直径', value: cfg.haloSize, min: 12, max: 80, step: 1, unit: ' px', onChange: v => update({ haloSize: v }) }),
+					h(NumberField, { label: '模糊', value: cfg.haloBlur, min: 0, max: 20, step: 0.5, unit: ' px', onChange: v => update({ haloBlur: v }) }),
+					h(NumberField, { label: '中心 X', value: cfg.haloCenterX, min: 0, max: 24, step: 0.5, unit: ' px', hint: '箭头图标中心', onChange: v => update({ haloCenterX: v }) }),
+					h(NumberField, { label: '中心 Y', value: cfg.haloCenterY, min: 0, max: 24, step: 0.5, unit: ' px', hint: '箭头图标中心', onChange: v => update({ haloCenterY: v }) }),
+				),
+
+				h('section', { className: 'cg-group' },
+					h('h4', { className: 'cg-group-title' }, '呼吸动画 Breathing'),
+					h(NumberField, { label: '周期', value: cfg.breatheDuration, min: 0.5, max: 6, step: 0.1, unit: ' s', onChange: v => update({ breatheDuration: v }) }),
+					h(NumberField, { label: '缩放下限', value: cfg.breatheScaleMin, min: 0.5, max: 1.5, step: 0.01, onChange: v => update({ breatheScaleMin: v }) }),
+					h(NumberField, { label: '缩放上限', value: cfg.breatheScaleMax, min: 0.5, max: 2, step: 0.01, onChange: v => update({ breatheScaleMax: v }) }),
+					h(NumberField, { label: '透明度下限', value: cfg.breatheOpacityMin, min: 0, max: 1, step: 0.01, onChange: v => update({ breatheOpacityMin: v }) }),
+					h(NumberField, { label: '透明度上限', value: cfg.breatheOpacityMax, min: 0, max: 1, step: 0.01, onChange: v => update({ breatheOpacityMax: v }) }),
+				),
+
+				h('section', { className: 'cg-group' },
+					h('h4', { className: 'cg-group-title' }, '色相流动 Hue Cycle'),
+					h(NumberField, { label: '周期', value: cfg.hueCycleMs, min: 1000, max: 20000, step: 500, unit: ' ms', onChange: v => update({ hueCycleMs: v }) }),
+				),
+
+				h('button', { className: 'cg-reset', onClick: reset }, '恢复默认'),
+			);
+		}
+
+		// ---- plugin body ----
+		function apply(ctx) {
+			loadConfig();
+			startGlow();
+
+			const settingsStyle = document.createElement('style');
+			settingsStyle.dataset.pluginCss = 'dsh-cursor-glow-settings';
+			settingsStyle.textContent = SETTINGS_CSS;
+			document.head.appendChild(settingsStyle);
+
+			ctx.effect(() => () => {
+				settingsStyle.remove();
+				stopGlow();
+			}, 'dsh-cursor-glow: cursor effect + settings styles');
+
+			const slots = ctx.get('slots');
+			if (slots !== undefined && typeof slots.inject === 'function') {
+				slots.inject('settings.section', () => {
+					const dispose = slots.register({
+						name: 'settings.section',
+						id: 'cursor-glow',
+						order: 35,
+						label: '光标光效',
+						inject: () => ({}),
+					}, CursorGlowSection);
+					return () => dispose();
+				});
+			}
 		}
 
 		exports.apply = apply;
