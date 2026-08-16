@@ -201,7 +201,6 @@
           top[rp].set(pc, color)
         } else {
           bottom[i].set(c.col, colorOf.get(c.hash) ?? FALLBACK_COLOR)
-          bottom[i].set(pc, color)
           for (let r = i + 1; r < rp; r++) { top[r].set(pc, color); bottom[r].set(pc, color) }
           top[rp].set(pc, color)
         }
@@ -214,7 +213,7 @@
     const dir = x2 > x1 ? 1 : -1
     const yc = ROW_H * 0.72
     const r = Math.max(2, Math.min(CORNER_R, Math.abs(x2 - x1) / 2))
-    return `<path d="M ${x1} ${ROW_H / 2} L ${x1} ${yc - r} Q ${x1} ${yc} ${x1 + dir * r} ${yc} L ${x2 - dir * r} ${yc} Q ${x2} ${yc} ${x2} ${yc + r} L ${x2} ${ROW_H}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`
+    return `<path d="M ${x1} ${yc} L ${x2 - dir * r} ${yc} Q ${x2} ${yc} ${x2} ${yc + r} L ${x2} ${ROW_H}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`
   }
 
   function rowSlice(c, i, lanes, colorOf, maxCol, rowOf) {

@@ -269,9 +269,11 @@ window.__ModuleLoader__.load({
             for (let r = i + 1; r < rp; r++) { top[r].set(pc, color); bottom[r].set(pc, color) }
             top[rp].set(pc, color)
           } else {
-            // merge: elbow in this row, then continue down the parent lane
+            // merge: the commit's own lane continues straight (first parent);
+            // the elbow (drawn separately) branches off horizontally, and the
+            // merged parent's lane continues below this row. No bottom line is
+            // drawn in the parent column here — the elbow owns that segment.
             bottom[i].set(c.col, colorOf.get(c.hash) ?? FALLBACK_COLOR)
-            bottom[i].set(pc, color)
             for (let r = i + 1; r < rp; r++) { top[r].set(pc, color); bottom[r].set(pc, color) }
             top[rp].set(pc, color)
           }
@@ -280,12 +282,15 @@ window.__ModuleLoader__.load({
       return { top, bottom }
     }
 
-    /** One row's merge elbow: node → rounded corner → horizontal → down to row bottom. */
+    /**
+     * One row's merge elbow: branch off the commit lane horizontally at the
+     * crossover, then rounded corner down to the row bottom (parent color).
+     */
     function elbowSlice(x1, x2, color) {
       const dir = x2 > x1 ? 1 : -1
       const yc = ROW_H * 0.72
       const r = Math.max(2, Math.min(CORNER_R, Math.abs(x2 - x1) / 2))
-      return `<path d="M ${x1} ${ROW_H / 2} L ${x1} ${yc - r} Q ${x1} ${yc} ${x1 + dir * r} ${yc} L ${x2 - dir * r} ${yc} Q ${x2} ${yc} ${x2} ${yc + r} L ${x2} ${ROW_H}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`
+      return `<path d="M ${x1} ${yc} L ${x2 - dir * r} ${yc} Q ${x2} ${yc} ${x2} ${yc + r} L ${x2} ${ROW_H}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`
     }
 
     /** The graph slice (lane lines + node + elbow) for one commit row. */
