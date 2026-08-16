@@ -25,9 +25,8 @@
 
     .body { flex: 1; display: flex; min-height: 0; }
     .graph-col { flex: 1; display: flex; min-width: 0; min-height: 0; overflow: auto; border-right: 1px solid rgba(255,255,255,.08); }
-    .graph-scroll { display: flex; min-width: max-content; min-height: 100%; }
-    .svg { flex: none; display: block; }
-    .rows { flex: none; display: flex; flex-direction: column; }
+    .graph-scroll { min-width: max-content; }
+    .slice { flex: none; display: block; }
 
     .row { display: flex; align-items: center; gap: 6px; padding: 0 12px 0 6px; cursor: pointer; white-space: nowrap; box-sizing: border-box; border-left: 2px solid transparent; }
     .row:hover { background: rgba(255,255,255,.05); }
@@ -187,52 +186,65 @@
     return { rows, maxCol, rowOf }
   }
 
-  function elbowPath(x1, y1, x2, y2) {
-    const dir = x2 > x1 ? 1 : -1
-    const ymid = y1 + ROW_H / 2
-    const r = Math.max(2, Math.min(CORNER_R, Math.abs(x2 - x1) / 2, (y2 - y1) / 3))
-    return [
-      `M ${x1} ${y1}`,
-      `L ${x1} ${ymid - r}`,
-      `Q ${x1} ${ymid} ${x1 + dir * r} ${ymid}`,
-      `L ${x2 - dir * r} ${ymid}`,
-      `Q ${x2} ${ymid} ${x2} ${ymid + r}`,
-      `L ${x2} ${y2 - NODE_R}`,
-    ].join(' ')
-  }
-
-  function buildSvg(rows, maxCol, rowOf, colorOf) {
-    const width = (maxCol + 1) * COL_W + PAD_X * 2
-    const height = rows.length * ROW_H
-    const cx = col => PAD_X + col * COL_W + COL_W / 2
-    const cy = i => i * ROW_H + ROW_H / 2
-    const parts = [`<svg class="svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="position:static;width:${width}px;height:${height}px;display:block;flex:none;fill:none;stroke:none">`]
+  function computeLanes(rows, rowOf, colorOf) {
+    const n = rows.length
+    const top = Array.from({ length: n }, () => new Map())
+    const bottom = Array.from({ length: n }, () => new Map())
     rows.forEach((c, i) => {
-      const x = cx(c.col), y = cy(i)
       c.parents.forEach((p, pi) => {
-        const pr = rowOf.get(p); if (pr === undefined) return
-        const pc = c.parentCols[pi], px = cx(pc), py = cy(pr)
+        const rp = rowOf.get(p); if (rp === undefined) return
+        const pc = c.parentCols[pi]
         const color = pi === 0 ? (colorOf.get(c.hash) ?? FALLBACK_COLOR) : (colorOf.get(p) ?? FALLBACK_COLOR)
         if (pc === c.col) {
-          parts.push(`<line x1="${x}" y1="${y + NODE_R}" x2="${px}" y2="${py - NODE_R}" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`)
+          bottom[i].set(pc, color)
+          for (let r = i + 1; r < rp; r++) { top[r].set(pc, color); bottom[r].set(pc, color) }
+          top[rp].set(pc, color)
         } else {
-          parts.push(`<path d="${elbowPath(x, y, px, py)}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`)
+          bottom[i].set(c.col, colorOf.get(c.hash) ?? FALLBACK_COLOR)
+          bottom[i].set(pc, color)
+          for (let r = i + 1; r < rp; r++) { top[r].set(pc, color); bottom[r].set(pc, color) }
+          top[rp].set(pc, color)
         }
       })
     })
-    rows.forEach((c, i) => {
-      const x = cx(c.col), y = cy(i), color = colorOf.get(c.hash) ?? FALLBACK_COLOR
-      parts.push(`<circle cx="${x}" cy="${y}" r="${NODE_R}" fill="${color}" stroke="rgba(0,0,0,.35)" stroke-width="1"/>`)
+    return { top, bottom }
+  }
+
+  function elbowSlice(x1, x2, color) {
+    const dir = x2 > x1 ? 1 : -1
+    const yc = ROW_H * 0.72
+    const r = Math.max(2, Math.min(CORNER_R, Math.abs(x2 - x1) / 2))
+    return `<path d="M ${x1} ${ROW_H / 2} L ${x1} ${yc - r} Q ${x1} ${yc} ${x1 + dir * r} ${yc} L ${x2 - dir * r} ${yc} Q ${x2} ${yc} ${x2} ${yc + r} L ${x2} ${ROW_H}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`
+  }
+
+  function rowSlice(c, i, lanes, colorOf, maxCol, rowOf) {
+    const w = (maxCol + 1) * COL_W + PAD_X * 2
+    const cx = col => PAD_X + col * COL_W + COL_W / 2
+    const parts = [`<svg class="slice" width="${w}" height="${ROW_H}" viewBox="0 0 ${w} ${ROW_H}" style="position:static;width:${w}px;height:${ROW_H}px;display:block;flex:none;fill:none;stroke:none">`]
+    for (let col = 0; col <= maxCol; col++) {
+      const tc = lanes.top[i].get(col)
+      const bc = lanes.bottom[i].get(col)
+      if (tc) parts.push(`<line x1="${cx(col)}" y1="0" x2="${cx(col)}" y2="${ROW_H / 2}" stroke="${tc}" stroke-width="2" stroke-linecap="round"/>`)
+      if (bc) parts.push(`<line x1="${cx(col)}" y1="${ROW_H / 2}" x2="${cx(col)}" y2="${ROW_H}" stroke="${bc}" stroke-width="2" stroke-linecap="round"/>`)
+    }
+    c.parents.forEach((p, pi) => {
+      const rp = rowOf.get(p); if (rp === undefined) return
+      const pc = c.parentCols[pi]
+      if (pc !== c.col) parts.push(elbowSlice(cx(c.col), cx(pc), colorOf.get(p) ?? FALLBACK_COLOR))
     })
+    parts.push(`<circle cx="${cx(c.col)}" cy="${ROW_H / 2}" r="${NODE_R}" fill="${colorOf.get(c.hash) ?? FALLBACK_COLOR}" stroke="rgba(0,0,0,.35)" stroke-width="1"/>`)
     parts.push('</svg>')
     return parts.join('')
   }
 
-  function rowsHtml(rows) {
-    return rows.map(c => {
+  function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
+    const lanes = computeLanes(rows, rowOf, colorOf)
+    return rows.map((c, i) => {
       const meta = [c.hash, c.author, relTime(c.date)].filter(Boolean).join(' · ')
+      const sel = c.hash === selectedHash ? ' sel' : ''
       return (
-        `<div class="row" data-hash="${esc(c.hash)}" style="height:${ROW_H}px">` +
+        `<div class="row${sel}" data-hash="${esc(c.hash)}" style="height:${ROW_H}px">` +
+        rowSlice(c, i, lanes, colorOf, maxCol, rowOf) +
         refsHtml(c.refs) +
         `<span class="subject">${esc(c.subject)}</span>` +
         `<span class="meta">${esc(meta)}</span>` +
@@ -295,7 +307,7 @@ index 1234567..89abcde 100644
   function render() {
     const { rows, maxCol, rowOf } = layout(MOCK_COMMITS)
     const colorOf = branchColors(rows)
-    graphEl.innerHTML = buildSvg(rows, maxCol, rowOf, colorOf) + '<div class="rows">' + rowsHtml(rows) + '</div>'
+    graphEl.innerHTML = graphHtml(rows, maxCol, rowOf, colorOf, selectedHash)
     graphEl.querySelectorAll('.row').forEach(el => {
       el.addEventListener('click', () => {
         selectedHash = el.dataset.hash

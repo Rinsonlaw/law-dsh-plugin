@@ -30,10 +30,9 @@ window.__ModuleLoader__.load({
       '.gg-body{flex:1;display:flex;min-height:0}',
       '.gg-graph-col{flex:1;display:flex;min-width:0;min-height:0;overflow:auto;border-right:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.08))}',
       '.gg-detail{flex:1 1 40%;min-width:280px;max-width:46%;display:flex;flex-direction:column;min-height:0;overflow:auto;padding:12px 14px}',
-      '.gg-graph-scroll{display:flex;min-width:max-content;min-height:100%}',
-      '.gg-svg{flex:none;display:block;position:static;width:auto;height:auto}',
+      '.gg-graph-scroll{min-width:max-content}',
+      '.gg-slice{flex:none;display:block;position:static;width:auto;height:auto}',
       '.gg-panel svg,.gg-overlay svg,.gg-toggle svg{position:static;width:auto;height:auto;flex:none}',
-      '.gg-rows{flex:none;display:flex;flex-direction:column}',
       '.gg-row{display:flex;align-items:center;gap:6px;padding:0 10px 0 4px;cursor:pointer;white-space:nowrap;box-sizing:border-box;border-left:2px solid transparent;flex:none}',
       '.gg-row:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary,#e6e6e6) 5%,transparent)}',
       '.gg-row.sel{background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#4c8dff) 14%,transparent);border-left-color:var(--dsw-alias-state-business-primary,#4c8dff)}',
@@ -246,73 +245,81 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * Rounded-rectangle corner elbow from a commit node (x1,y1) down to a
-     * parent node (x2,y2) in a different lane: vertical → rounded corner →
-     * horizontal → rounded corner → vertical. `y2` is always below `y1`.
+     * Compute, for every row, which columns carry a vertical lane line in the
+     * top half / bottom half of that row (Map: column → color). This lets each
+     * commit row own its graph slice, so the node and its text live in the SAME
+     * flex row and can never drift apart (the previous "one big SVG + separate
+     * text list" drifted when rendered inside the sidebar's HTML preview).
      */
-    function elbowPath(x1, y1, x2, y2) {
-      const dir = x2 > x1 ? 1 : -1
-      const ymid = y1 + ROW_H / 2
-      const r = Math.max(2, Math.min(CORNER_R, Math.abs(x2 - x1) / 2, (y2 - y1) / 3))
-      return [
-        `M ${x1} ${y1}`,
-        `L ${x1} ${ymid - r}`,
-        `Q ${x1} ${ymid} ${x1 + dir * r} ${ymid}`,
-        `L ${x2 - dir * r} ${ymid}`,
-        `Q ${x2} ${ymid} ${x2} ${ymid + r}`,
-        `L ${x2} ${y2 - NODE_R}`,
-      ].join(' ')
-    }
-
-    function buildSvg(rows, maxCol, rowOf, colorOf) {
-      const width = (maxCol + 1) * COL_W + PAD_X * 2
-      const height = rows.length * ROW_H
-      const cx = col => PAD_X + col * COL_W + COL_W / 2
-      const cy = i => i * ROW_H + ROW_H / 2
-      const parts = [`<svg class="gg-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="position:static;width:${width}px;height:${height}px;display:block;flex:none;fill:none;stroke:none">`]
-
-      // edges (drawn first, under nodes)
+    function computeLanes(rows, rowOf, colorOf) {
+      const n = rows.length
+      const top = Array.from({ length: n }, () => new Map())
+      const bottom = Array.from({ length: n }, () => new Map())
       rows.forEach((c, i) => {
-        const x = cx(c.col)
-        const y = cy(i)
         c.parents.forEach((p, pi) => {
-          const pr = rowOf.get(p)
-          if (pr === undefined) return
+          const rp = rowOf.get(p)
+          if (rp === undefined) return
           const pc = c.parentCols[pi]
-          const px = cx(pc)
-          const py = cy(pr)
-          // First parent follows the commit's branch; merge parents take the
-          // merged-in branch's color.
           const color = pi === 0
             ? (colorOf.get(c.hash) ?? FALLBACK_COLOR)
             : (colorOf.get(p) ?? FALLBACK_COLOR)
           if (pc === c.col) {
-            parts.push(`<line x1="${x}" y1="${y + NODE_R}" x2="${px}" y2="${py - NODE_R}" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`)
+            // first-parent lane: straight down
+            bottom[i].set(pc, color)
+            for (let r = i + 1; r < rp; r++) { top[r].set(pc, color); bottom[r].set(pc, color) }
+            top[rp].set(pc, color)
           } else {
-            parts.push(`<path d="${elbowPath(x, y, px, py)}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`)
+            // merge: elbow in this row, then continue down the parent lane
+            bottom[i].set(c.col, colorOf.get(c.hash) ?? FALLBACK_COLOR)
+            bottom[i].set(pc, color)
+            for (let r = i + 1; r < rp; r++) { top[r].set(pc, color); bottom[r].set(pc, color) }
+            top[rp].set(pc, color)
           }
         })
       })
+      return { top, bottom }
+    }
 
-      // nodes
-      rows.forEach((c, i) => {
-        const x = cx(c.col)
-        const y = cy(i)
-        const color = colorOf.get(c.hash) ?? FALLBACK_COLOR
-        parts.push(`<circle cx="${x}" cy="${y}" r="${NODE_R}" fill="${color}" stroke="rgba(0,0,0,.35)" stroke-width="1"/>`)
+    /** One row's merge elbow: node → rounded corner → horizontal → down to row bottom. */
+    function elbowSlice(x1, x2, color) {
+      const dir = x2 > x1 ? 1 : -1
+      const yc = ROW_H * 0.72
+      const r = Math.max(2, Math.min(CORNER_R, Math.abs(x2 - x1) / 2))
+      return `<path d="M ${x1} ${ROW_H / 2} L ${x1} ${yc - r} Q ${x1} ${yc} ${x1 + dir * r} ${yc} L ${x2 - dir * r} ${yc} Q ${x2} ${yc} ${x2} ${yc + r} L ${x2} ${ROW_H}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`
+    }
+
+    /** The graph slice (lane lines + node + elbow) for one commit row. */
+    function rowSlice(c, i, lanes, colorOf, maxCol, rowOf) {
+      const w = (maxCol + 1) * COL_W + PAD_X * 2
+      const cx = col => PAD_X + col * COL_W + COL_W / 2
+      const parts = [`<svg class="gg-slice" width="${w}" height="${ROW_H}" viewBox="0 0 ${w} ${ROW_H}" style="position:static;width:${w}px;height:${ROW_H}px;display:block;flex:none;fill:none;stroke:none">`]
+      for (let col = 0; col <= maxCol; col++) {
+        const tc = lanes.top[i].get(col)
+        const bc = lanes.bottom[i].get(col)
+        if (tc) parts.push(`<line x1="${cx(col)}" y1="0" x2="${cx(col)}" y2="${ROW_H / 2}" stroke="${tc}" stroke-width="2" stroke-linecap="round"/>`)
+        if (bc) parts.push(`<line x1="${cx(col)}" y1="${ROW_H / 2}" x2="${cx(col)}" y2="${ROW_H}" stroke="${bc}" stroke-width="2" stroke-linecap="round"/>`)
+      }
+      c.parents.forEach((p, pi) => {
+        const rp = rowOf.get(p)
+        if (rp === undefined) return
+        const pc = c.parentCols[pi]
+        if (pc !== c.col) parts.push(elbowSlice(cx(c.col), cx(pc), colorOf.get(p) ?? FALLBACK_COLOR))
       })
-
+      parts.push(`<circle cx="${cx(c.col)}" cy="${ROW_H / 2}" r="${NODE_R}" fill="${colorOf.get(c.hash) ?? FALLBACK_COLOR}" stroke="rgba(0,0,0,.35)" stroke-width="1"/>`)
       parts.push('</svg>')
       return parts.join('')
     }
 
-    function rowsHtml(rows, selectedHash) {
-      return rows.map(c => {
+    /** Full graph markup: one `.gg-row` per commit, each embedding its graph slice + text. */
+    function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
+      const lanes = computeLanes(rows, rowOf, colorOf)
+      return rows.map((c, i) => {
         const refs = refsHtml(c.refs)
         const meta = [c.short, c.author, relTime(c.date)].filter(Boolean).join(' · ')
         const sel = c.hash === selectedHash ? ' sel' : ''
         return (
           `<div class="gg-row${sel}" data-hash="${esc(c.hash)}" style="height:${ROW_H}px">` +
+          rowSlice(c, i, lanes, colorOf, maxCol, rowOf) +
           refs +
           `<span class="gg-subject">${esc(c.subject || '(no subject)')}</span>` +
           `<span class="gg-meta">${esc(meta)}</span>` +
@@ -372,13 +379,11 @@ window.__ModuleLoader__.load({
         return layout(commits)
       }, [state.data])
 
-      const svg = useMemo(() => {
-        if (!state.data || state.data.commits.length === 0) return null
+      const graphMarkup = useMemo(() => {
+        if (!state.data || state.data.commits.length === 0) return ''
         const colorOf = branchColors(layoutData.rows)
-        return buildSvg(layoutData.rows, layoutData.maxCol, layoutData.rowOf, colorOf)
-      }, [layoutData, state.data])
-
-      const rowsMarkup = useMemo(() => rowsHtml(layoutData.rows, selected), [layoutData.rows, selected])
+        return graphHtml(layoutData.rows, layoutData.maxCol, layoutData.rowOf, colorOf, selected)
+      }, [layoutData, state.data, selected])
 
       return h('div', { className: 'gg-panel' },
         h('div', { className: 'gg-toolbar' },
@@ -407,7 +412,7 @@ window.__ModuleLoader__.load({
               className: 'gg-graph-scroll',
               ref: scrollRef,
               onClick: onRowClick,
-              dangerouslySetInnerHTML: { __html: (svg ?? '') + '<div class="gg-rows">' + rowsMarkup + '</div>' },
+              dangerouslySetInnerHTML: { __html: graphMarkup },
             }),
           ),
           h('div', { className: 'gg-detail' },
