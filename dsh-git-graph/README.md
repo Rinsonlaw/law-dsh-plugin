@@ -11,6 +11,7 @@
 | `lib/client.js` | 浏览器端：泳道布局 + SVG 渲染 + 面板 UI |
 | `package.json` | 插件声明（`dsh.bundle.patch` + `dsh.client`） |
 | `cordis.patch.yml` | bundle 挂载声明 |
+| `preview/preview.html` | 独立预览页，用内置模拟数据离线查看图谱渲染效果 |
 
 ## 功能
 
@@ -18,6 +19,10 @@
 - 提交行显示短 hash、作者、相对时间，以及 HEAD / 分支 / 标签 / 远程 彩色标记。
 - 点击提交：右侧详情面板显示完整提交信息、改动文件列表、stat 与 diff。
 - 顶部工具条：仓库路径（默认会话工作目录）、提交数量上限、刷新。
+
+## 预览
+
+无需安装，直接用浏览器打开 `preview/preview.html` 即可离线查看图谱（泳道、合并曲线、refs 标记、提交详情），使用内置模拟数据。
 
 ## 入口
 

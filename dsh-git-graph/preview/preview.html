@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>dsh-git-graph · 预览</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { margin: 0; box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      font-family: -apple-system, "PingFang SC", "Segoe UI", sans-serif;
+      background: #0f1115; color: #e6e6e6; font-size: 13px;
+    }
+    .app { display: flex; flex-direction: column; height: 100vh; }
+
+    .toolbar { display: flex; gap: 8px; align-items: center; padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,.08); flex: none; flex-wrap: wrap; }
+    .toolbar .title { font-weight: 600; display: flex; align-items: center; gap: 6px; }
+    .toolbar .hint { font-size: 12px; color: #8b94a7; }
+    .input { font: inherit; font-size: 12px; color: #e6e6e6; background: #1a1d24; border: 1px solid rgba(255,255,255,.1); border-radius: 6px; padding: 4px 8px; outline: none; }
+    .input.path { flex: 1 1 220px; }
+    .btn { font: inherit; font-size: 12px; color: #e6e6e6; background: #262a33; border: 1px solid rgba(255,255,255,.1); border-radius: 6px; padding: 4px 12px; cursor: pointer; white-space: nowrap; }
+    .btn:hover { background: rgba(255,255,255,.06); }
+    .btn.primary { background: #4c8dff; border-color: transparent; color: #fff; }
+
+    .body { flex: 1; display: flex; min-height: 0; }
+    .graph-col { flex: 1; display: flex; min-width: 0; min-height: 0; overflow: auto; border-right: 1px solid rgba(255,255,255,.08); }
+    .graph-scroll { display: flex; min-width: max-content; min-height: 100%; }
+    .svg { flex: none; display: block; }
+    .rows { flex: none; display: flex; flex-direction: column; }
+
+    .row { display: flex; align-items: center; gap: 6px; padding: 0 12px 0 6px; cursor: pointer; white-space: nowrap; box-sizing: border-box; border-left: 2px solid transparent; }
+    .row:hover { background: rgba(255,255,255,.05); }
+    .row.sel { background: rgba(255,255,255,.08); border-left-color: #4c8dff; }
+    .subject { overflow: hidden; text-overflow: ellipsis; color: #e6e6e6; }
+    .meta { font-size: 11px; color: #8b94a7; flex: none; }
+    .ref { display: inline-block; font-size: 10px; line-height: 16px; padding: 0 6px; border-radius: 8px; margin-right: 4px; font-weight: 600; vertical-align: middle; }
+    .ref-head { background: #e5484d; color: #fff; }
+    .ref-branch { background: rgba(46,160,67,.25); color: #3fb950; }
+    .ref-tag { background: rgba(210,153,34,.22); color: #e3b341; }
+    .ref-remote { background: rgba(88,166,255,.18); color: #79b8ff; }
+
+    .detail { flex: 1 1 40%; min-width: 300px; max-width: 46%; overflow: auto; padding: 14px 16px; }
+    .detail h3 { margin: 0 0 2px; font-size: 15px; line-height: 22px; font-weight: 600; word-break: break-word; }
+    .d-meta { font-size: 12px; color: #8b94a7; margin: 2px 0 10px; }
+    .d-body { white-space: pre-wrap; font-size: 12.5px; line-height: 18px; color: #c9d1d9; margin: 0 0 12px; }
+    .d-files h4, .d-diff h4 { margin: 0 0 6px; font-size: 12px; color: #c9d1d9; }
+    .d-files { margin: 0 0 14px; }
+    .file { display: flex; gap: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 20px; color: #c9d1d9; }
+    .file .st { flex: none; width: 26px; text-align: center; border-radius: 3px; font-size: 10px; line-height: 16px; font-weight: 700; margin-top: 2px; }
+    .file .st.A { background: rgba(46,160,67,.2); color: #3fb950; }
+    .file .st.D { background: rgba(248,81,73,.2); color: #f85149; }
+    .file .st.M, .file .st.R { background: rgba(210,153,34,.18); color: #e3b341; }
+    .diff { background: #1a1d24; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 10px 12px; overflow: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; line-height: 16px; white-space: pre; color: #c9d1d9; }
+    .empty { color: #8b94a7; padding: 14px 4px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="toolbar">
+      <span class="title">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3ZM2 2h6v1.5H2V2Zm9.5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3ZM8 6.5H2V8h6V6.5Zm3.5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3ZM10 11H2v1.5h8V11Z"/></svg>
+        Git Graph
+      </span>
+      <input class="input path" value="demo-repo（模拟数据）" spellcheck="false" disabled />
+      <button class="btn primary" onclick="render()">Refresh</button>
+      <span class="hint">这是独立预览页，使用内置模拟提交数据；点任意提交看详情。</span>
+    </div>
+    <div class="body">
+      <div class="graph-col">
+        <div class="graph-scroll" id="graph"></div>
+      </div>
+      <div class="detail" id="detail">
+        <div class="empty">点左侧任意提交，查看信息 / 改动文件 / diff。</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // ── 模拟提交数据（新 → 旧，topo 顺序） ─────────────────────────────────────
+  const MOCK_COMMITS = [
+    { hash: 'e91b4f2', parents: ['c3a77e1', 'd84f9c0'], subject: "Merge branch 'feature' into main", author: 'law', date: '2026-08-16T12:00:00+08:00', refs: ['HEAD -> main', 'origin/main'] },
+    { hash: 'b2f8c3a', parents: ['a7d4e90'], subject: 'dev: add analytics hook', author: 'law', date: '2026-08-16T10:30:00+08:00', refs: ['develop', 'origin/develop'] },
+    { hash: 'c3a77e1', parents: ['e5f6b1d'], subject: 'fix: correct typo in README', author: 'law', date: '2026-08-15T09:00:00+08:00', refs: [] },
+    { hash: 'd84f9c0', parents: ['f2a1e8b'], subject: 'feat: add search box', author: 'alice', date: '2026-08-14T16:20:00+08:00', refs: ['origin/feature'] },
+    { hash: 'e5f6b1d', parents: ['f2a1e8b'], subject: 'chore: bump version to 1.0.1', author: 'law', date: '2026-08-13T11:00:00+08:00', refs: [] },
+    { hash: 'f2a1e8b', parents: ['a7d4e90'], subject: 'feat: add filter controls', author: 'alice', date: '2026-08-12T14:00:00+08:00', refs: [] },
+    { hash: 'a7d4e90', parents: ['9c8b7a6'], subject: 'chore: project scaffold', author: 'law', date: '2026-08-11T10:00:00+08:00', refs: ['tag: v1.0'] },
+    { hash: '9c8b7a6', parents: [], subject: 'init: first commit', author: 'law', date: '2026-08-10T09:00:00+08:00', refs: ['tag: v0.1'] },
+  ]
+
+  // ── 与 lib/client.js 一致的布局 + SVG 渲染逻辑（纯 JS 版） ─────────────────
+  const ROW_H = 32, COL_W = 16, NODE_R = 4.5, PAD_X = 6
+  const LANE_COLORS = ['#e06c75', '#61afef', '#98c379', '#d19a66', '#c678dd', '#56b6c2', '#e5c07b', '#abb2bf', '#ff6c6b', '#7c93ff']
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
+  function laneColor(col) { return LANE_COLORS[((col % LANE_COLORS.length) + LANE_COLORS.length) % LANE_COLORS.length] }
+  function relTime(iso) {
+    const d = new Date(iso); if (isNaN(d)) return ''
+    const diff = Date.now() - d.getTime(), abs = Math.abs(diff)
+    const rtf = new Intl.RelativeTimeFormat('zh-CN', { numeric: 'auto' })
+    const units = [[31536000000,'year'],[2592000000,'month'],[86400000,'day'],[3600000,'hour'],[60000,'minute'],[1000,'second']]
+    for (const [ms, unit] of units) if (abs >= ms) return rtf.format(Math.round(-diff / ms), unit)
+    return '刚刚'
+  }
+
+  function refsHtml(refs) {
+    return (refs || []).map(r => {
+      if (r === 'HEAD') return '<span class="ref ref-head">HEAD</span>'
+      if (r.startsWith('HEAD ->')) {
+        const b = r.slice('HEAD ->'.length).trim()
+        return '<span class="ref ref-head">HEAD</span>' + (b ? `<span class="ref ref-branch">${esc(b)}</span>` : '')
+      }
+      if (r.startsWith('tag: ')) return `<span class="ref ref-tag">${esc(r.slice(5))}</span>`
+      if (r.includes('/')) return `<span class="ref ref-remote">${esc(r)}</span>`
+      return `<span class="ref ref-branch">${esc(r)}</span>`
+    }).join('')
+  }
+
+  function layout(commits) {
+    const column = new Map(), rowOf = new Map(), tips = []
+    commits.forEach((c, i) => {
+      rowOf.set(c.hash, i)
+      let col = tips.indexOf(c.hash)
+      if (col === -1) { col = tips.length; tips.push(c.hash) }
+      column.set(c.hash, col)
+      c.parents.forEach((p, pi) => {
+        if (pi === 0) tips[col] = p
+        else { let pc = tips.indexOf(p); if (pc === -1) { pc = tips.length; tips.push(p) } tips[pc] = p }
+      })
+    })
+    let maxCol = 0
+    const rows = commits.map(c => {
+      const col = column.get(c.hash) ?? 0
+      if (col > maxCol) maxCol = col
+      return { ...c, col, parentCols: c.parents.map(p => column.get(p) ?? col) }
+    })
+    return { rows, maxCol, rowOf }
+  }
+
+  function buildSvg(rows, maxCol, rowOf) {
+    const width = (maxCol + 1) * COL_W + PAD_X * 2
+    const height = rows.length * ROW_H
+    const cx = col => PAD_X + col * COL_W + COL_W / 2
+    const cy = i => i * ROW_H + ROW_H / 2
+    const parts = [`<svg class="svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`]
+    rows.forEach((c, i) => {
+      const x = cx(c.col), y = cy(i)
+      c.parents.forEach((p, pi) => {
+        const pr = rowOf.get(p); if (pr === undefined) return
+        const pc = c.parentCols[pi], px = cx(pc), py = cy(pr), color = laneColor(pc)
+        if (pc === c.col) {
+          parts.push(`<line x1="${x}" y1="${y + NODE_R}" x2="${px}" y2="${py - NODE_R}" stroke="${color}" stroke-width="2"/>`)
+        } else {
+          const oy = ROW_H * 0.9
+          parts.push(`<path d="M ${x} ${y} C ${x} ${y + oy}, ${px} ${py - oy}, ${px} ${py}" fill="none" stroke="${color}" stroke-width="2"/>`)
+        }
+      })
+    })
+    rows.forEach((c, i) => {
+      const x = cx(c.col), y = cy(i), color = laneColor(c.col)
+      parts.push(`<circle cx="${x}" cy="${y}" r="${NODE_R}" fill="${color}" stroke="rgba(0,0,0,.35)" stroke-width="1"/>`)
+    })
+    parts.push('</svg>')
+    return parts.join('')
+  }
+
+  function rowsHtml(rows) {
+    return rows.map(c => {
+      const meta = [c.hash, c.author, relTime(c.date)].filter(Boolean).join(' · ')
+      return (
+        `<div class="row" data-hash="${esc(c.hash)}" style="height:${ROW_H}px">` +
+        refsHtml(c.refs) +
+        `<span class="subject">${esc(c.subject)}</span>` +
+        `<span class="meta">${esc(meta)}</span>` +
+        `</div>`
+      )
+    }).join('')
+  }
+
+  // ── 模拟提交详情 ─────────────────────────────────────────────────────────
+  function mockDetail(c) {
+    const files = [
+      { status: 'M', path: 'src/render.js' },
+      { status: 'A', path: 'src/features/' + (c.subject.includes('feat') ? 'feature.js' : 'utils.js') },
+      { status: 'D', path: 'legacy/deprecated.js' },
+    ]
+    const diff = `diff --git a/src/render.js b/src/render.js
+index 1234567..89abcde 100644
+--- a/src/render.js
++++ b/src/render.js
+@@ -1,4 +1,5 @@
+ import { mount } from './mount.js'
++import { init } from './init.js'
+ 
+ export function boot() {
++  init()
+   mount()
+ }
+`
+    return {
+      ...c,
+      body: '这是「' + c.subject + '」的模拟提交正文。\n\n预览页用于离线检查图谱泳道、合并曲线与 refs 标记的渲染效果。',
+      files,
+      stats: '3 files changed, 12 insertions(+), 4 deletions(-)',
+      diff,
+    }
+  }
+
+  // ── 渲染 ─────────────────────────────────────────────────────────────────
+  const graphEl = document.getElementById('graph')
+  const detailEl = document.getElementById('detail')
+  let selectedHash = null
+
+  function renderDetail(c) {
+    const d = mockDetail(c)
+    const stClass = s => ({ 'M': 'M', 'A': 'A', 'D': 'D', 'R': 'R' }[s.charAt(0)] || 'M')
+    detailEl.innerHTML =
+      '<h3>' + esc(d.subject) + '</h3>' +
+      '<div class="d-meta">' +
+        esc(d.hash + ' · ' + d.author) + ' · ' + esc(new Date(d.date).toLocaleString('zh-CN')) +
+        '<div>' + refsHtml(d.refs) + '</div>' +
+      '</div>' +
+      '<pre class="d-body">' + esc(d.body) + '</pre>' +
+      '<div class="d-files"><h4>Changed files (' + d.files.length + ')</h4>' +
+        d.files.map(f => '<div class="file"><span class="st ' + stClass(f.status) + '">' + esc(f.status.charAt(0)) + '</span><span>' + esc(f.path) + '</span></div>').join('') +
+      '</div>' +
+      '<div class="d-meta">' + esc(d.stats) + '</div>' +
+      '<div class="d-diff"><h4>Diff</h4><pre class="diff">' + esc(d.diff) + '</pre></div>'
+  }
+
+  function render() {
+    const { rows, maxCol, rowOf } = layout(MOCK_COMMITS)
+    graphEl.innerHTML = buildSvg(rows, maxCol, rowOf) + '<div class="rows">' + rowsHtml(rows) + '</div>'
+    graphEl.querySelectorAll('.row').forEach(el => {
+      el.addEventListener('click', () => {
+        selectedHash = el.dataset.hash
+        graphEl.querySelectorAll('.row').forEach(r => r.classList.toggle('sel', r.dataset.hash === selectedHash))
+        const c = MOCK_COMMITS.find(x => x.hash === selectedHash)
+        if (c) renderDetail(c)
+      })
+    })
+    // 默认选中最新提交
+    const first = MOCK_COMMITS[0]
+    graphEl.querySelector(`.row[data-hash="${first.hash}"]`)?.classList.add('sel')
+    renderDetail(first)
+  }
+
+  render()
+  </script>
+</body>
+</html>
