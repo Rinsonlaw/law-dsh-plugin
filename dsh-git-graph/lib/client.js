@@ -450,6 +450,7 @@ window.__ModuleLoader__.load({
             title: '提交数量上限',
             onChange: e => setMaxCount(Number(e.target.value)),
           },
+            h('option', { value: 0 }, '全部'),
             h('option', { value: 100 }, '最近 100'),
             h('option', { value: 300 }, '最近 300'),
             h('option', { value: 500 }, '最近 500'),

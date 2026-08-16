@@ -126,12 +126,12 @@ export async function getGraph(cwd, maxCount = 300) {
   if (!(await isGitRepo(cwd))) return { isRepo: false }
   const root = await repoRoot(cwd)
   const branch = await currentBranch(root).catch(() => 'HEAD')
-  const limit = Math.min(2000, Math.max(10, Math.floor(Number(maxCount) || 300)))
-  const raw = await runGit(root, [
-    'log', '--all', '--topo-order', '--date=iso-strict',
-    '-n', String(limit),
-    `--pretty=format:${['%H', '%P', '%h', '%s', '%an', '%ae', '%ad', '%D'].join(FMT_SEP)}`,
-  ])
+  // maxCount <= 0 means "all commits" (no `-n` limit).
+  const limit = Math.floor(Number(maxCount) || 0)
+  const args = ['log', '--all', '--topo-order', '--date=iso-strict']
+  if (limit > 0) args.push('-n', String(Math.min(2000, Math.max(1, limit))))
+  args.push(`--pretty=format:${['%H', '%P', '%h', '%s', '%an', '%ae', '%ad', '%D'].join(FMT_SEP)}`)
+  const raw = await runGit(root, args)
   const commits = []
   for (const line of raw.split('\n')) {
     if (!line) continue
