@@ -30,14 +30,17 @@ window.__ModuleLoader__.load({
       '.gg-input:focus{border-color:var(--dsw-alias-state-business-primary,#4c8dff)}',
       '.gg-input.gg-path{flex:1 1 220px}',
       '.gg-input.gg-count{width:104px}',
+      '.gg-input.gg-search{width:170px}',
+      '.gg-input.gg-author{width:140px;max-width:160px}',
       '.gg-btn{font:inherit;font-size:12px;color:var(--dsw-alias-label-primary,#e6e6e6);background:var(--dsw-alias-button-elevated-fill,#262a33);border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.1));border-radius:6px;padding:4px 10px;cursor:pointer;white-space:nowrap}',
       '.gg-btn:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary,#e6e6e6) 8%,transparent)}',
       '.gg-btn.primary{background:var(--dsw-alias-state-business-primary,#4c8dff);border-color:transparent;color:#fff}',
       '.gg-btn.gg-icon{padding:0;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;flex:none}',
       '.gg-body{flex:1;display:flex;min-height:0}',
-      '.gg-graph-col{flex:1;display:flex;min-width:0;min-height:0;overflow:auto;border-right:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.08))}',
+      '.gg-graph-col{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:auto;border-right:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.08))}',
       '.gg-detail{flex:1 1 40%;min-width:280px;max-width:46%;display:flex;flex-direction:column;min-height:0;overflow:auto;padding:12px 14px}',
       '.gg-graph-scroll{min-width:max-content}',
+      '.gg-count-line{flex:none;padding:4px 12px;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b94a7);border-bottom:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.06));position:sticky;top:0;background:var(--dsw-alias-bg-base,#0f1115);z-index:1}',
       '.gg-slice{flex:none;display:block;position:static;width:auto;height:auto}',
       '.gg-panel svg,.gg-overlay svg,.gg-toggle svg{position:static;width:auto;height:auto;flex:none}',
       '.gg-row{display:flex;align-items:center;gap:6px;padding:0 10px 0 4px;cursor:pointer;white-space:nowrap;box-sizing:border-box;border-left:2px solid transparent;flex:none}',
@@ -140,6 +143,8 @@ window.__ModuleLoader__.load({
       const [menu, setMenu] = useState(null)
       const [modal, setModal] = useState(null)
       const [toast, setToast] = useState(null)
+      const [query, setQuery] = useState('')
+      const [authorFilter, setAuthorFilter] = useState('')
       const scrollRef = useRef(null)
       const maxCountRef = useRef(maxCount)
       useEffect(() => { maxCountRef.current = maxCount }, [maxCount])
@@ -344,18 +349,58 @@ window.__ModuleLoader__.load({
         setMenu({ x, y, items })
       }
 
-      const layoutData = useMemo(() => {
-        const commits = state.data?.commits ?? []
-        return layout(commits)
+      const authors = useMemo(() => {
+        const seen = new Map()
+        for (const c of state.data?.commits ?? []) {
+          if (c.author && !seen.has(c.author)) seen.set(c.author, c.author)
+        }
+        return [...seen.keys()].sort((a, b) => a.localeCompare(b))
       }, [state.data])
 
+      const filteredCommits = useMemo(() => {
+        const commits = state.data?.commits ?? []
+        const q = query.trim().toLowerCase()
+        return commits.filter(c => {
+          if (authorFilter && c.author !== authorFilter) return false
+          if (!q) return true
+          return (c.subject || '').toLowerCase().includes(q)
+            || (c.hash || '').toLowerCase().includes(q)
+            || (c.short || '').toLowerCase().includes(q)
+            || (c.author || '').toLowerCase().includes(q)
+            || (c.authorEmail || '').toLowerCase().includes(q)
+        })
+      }, [state.data, query, authorFilter])
+
+      const visibleHashes = useMemo(() => filteredCommits.map(c => c.hash), [filteredCommits])
+
+      const layoutData = useMemo(() => layout(filteredCommits), [filteredCommits])
+
       const graphMarkup = useMemo(() => {
-        if (!state.data || state.data.commits.length === 0) return ''
+        if (filteredCommits.length === 0) return ''
         const colorOf = branchColors(layoutData.rows)
         return graphHtml(layoutData.rows, layoutData.maxCol, layoutData.rowOf, colorOf, selected)
-      }, [layoutData, state.data, selected])
+      }, [layoutData, filteredCommits, selected])
 
-      return h(Fragment, null, h('div', { className: 'gg-panel' },
+      const onKeyDown = (e) => {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault()
+          if (visibleHashes.length === 0) return
+          const idx = selected ? visibleHashes.indexOf(selected) : -1
+          let next
+          if (idx === -1) next = e.key === 'ArrowDown' ? 0 : visibleHashes.length - 1
+          else if (e.key === 'ArrowDown') next = Math.min(idx + 1, visibleHashes.length - 1)
+          else next = Math.max(idx - 1, 0)
+          setSelected(visibleHashes[next])
+          setDetail({ status: 'idle', data: null, error: null })
+        } else if (e.key === 'Enter') {
+          if (selected) openCommit(selected)
+        } else if (e.key === 'Escape') {
+          setSelected(null)
+          setDetail({ status: 'idle', data: null, error: null })
+        }
+      }
+
+      return h(Fragment, null, h('div', { className: 'gg-panel', tabIndex: 0, onKeyDown },
         h('div', { className: 'gg-toolbar' },
           h('span', { className: 'gg-title' },
             h(IconBranchOutline16, { size: 16 }),
@@ -365,6 +410,20 @@ window.__ModuleLoader__.load({
             className: 'gg-input gg-path', value: path, readOnly: true,
             spellCheck: false, placeholder: 'repository path', title: '仓库路径',
           }),
+          h('input', {
+            className: 'gg-input gg-search', value: query,
+            spellCheck: false, placeholder: '搜索提交 / hash / 作者', title: '搜索',
+            onChange: e => setQuery(e.target.value),
+          }),
+          h('select', {
+            className: 'gg-input gg-author',
+            value: authorFilter,
+            title: '按作者筛选',
+            onChange: e => setAuthorFilter(e.target.value),
+          },
+            h('option', { value: '' }, '全部作者'),
+            authors.map(a => h('option', { value: a, key: a }, a)),
+          ),
           h('select', {
             className: 'gg-input gg-count',
             value: maxCount,
@@ -390,6 +449,11 @@ window.__ModuleLoader__.load({
             state.status === 'error' && h('div', { className: 'gg-status err' }, 'Error: ' + state.error),
             state.status === 'ready' && state.data && !state.data.isRepo && h('div', { className: 'gg-status' }, 'Not a git repository. Enter a repository path above.'),
             state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length === 0 && h('div', { className: 'gg-status' }, 'No commits yet.'),
+            state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length > 0 && h('div', { className: 'gg-count-line' },
+              filteredCommits.length === state.data.commits.length
+                ? `${state.data.commits.length} commits`
+                : `匹配 ${filteredCommits.length} / ${state.data.commits.length} commits`,
+            ),
             state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length > 0 && h('div', {
               className: 'gg-graph-scroll',
               ref: scrollRef,
@@ -400,6 +464,7 @@ window.__ModuleLoader__.load({
           ),
           h('div', { className: 'gg-detail' },
             selected === null && h('div', { className: 'gg-empty' }, 'Select a commit to see its message, changed files, and diff.'),
+            selected !== null && detail.status === 'idle' && h('div', { className: 'gg-empty' }, '按 Enter 查看此提交详情，↑/↓ 切换提交'),
             selected !== null && detail.status === 'loading' && h('div', { className: 'gg-status' }, 'Loading commit…'),
             selected !== null && detail.status === 'error' && h('div', { className: 'gg-status err' }, 'Error: ' + detail.error),
             selected !== null && detail.status === 'ready' && detail.data && h(Fragment, null,
