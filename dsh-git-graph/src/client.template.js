@@ -36,6 +36,7 @@ window.__ModuleLoader__.load({
       '.gg-btn{font:inherit;font-size:12px;color:var(--dsw-alias-label-primary,#e6e6e6);background:var(--dsw-alias-button-elevated-fill,#262a33);border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.1));border-radius:6px;padding:4px 10px;cursor:pointer;white-space:nowrap}',
       '.gg-btn:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary,#e6e6e6) 8%,transparent)}',
       '.gg-btn.primary{background:var(--dsw-alias-state-business-primary,#4c8dff);border-color:transparent;color:#fff}',
+      '.gg-btn.primary:hover{background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#4c8dff) 78%,#fff);border-color:transparent}',
       '.gg-btn.gg-icon{padding:0;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;flex:none}',
       '.gg-body{flex:1;display:flex;min-height:0}',
       '.gg-graph-col{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:auto;border-right:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.08))}',
