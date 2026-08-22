@@ -17,6 +17,7 @@ window.__ModuleLoader__.load({
     const React = require('react')
     const { createElement: h, useState, useEffect, useCallback, useRef, useMemo, Fragment } = React
     const { IconBranchOutline16, IconRefreshOutline16, Tooltip } = require('@deepseek-ai/dsh-client-ui-primitives')
+    const ReactDOM = require('react-dom')
 
     /*__GRAPH_CODE__*/
 
@@ -493,17 +494,22 @@ window.__ModuleLoader__.load({
           ),
         ),
       ),
-      menu && h(Fragment, null,
-        h('div', { className: 'gg-menu-backdrop', onClick: () => setMenu(null) }),
-        h('div', { className: 'gg-context-menu', style: { left: menu.x, top: menu.y }, onClick: e => e.stopPropagation() },
-          menu.items.map((item, i) => item.sep
-            ? h('div', { className: 'gg-menu-sep', key: 'sep' + i })
-            : h('button', { className: 'gg-menu-item' + (item.danger ? ' danger' : ''), key: i, onClick: () => { const fn = item.onClick; setMenu(null); fn() } }, item.label),
+      ReactDOM.createPortal(
+        h(Fragment, null,
+          menu && h(Fragment, null,
+            h('div', { className: 'gg-menu-backdrop', onClick: () => setMenu(null) }),
+            h('div', { className: 'gg-context-menu', style: { left: menu.x, top: menu.y }, onClick: e => e.stopPropagation() },
+              menu.items.map((item, i) => item.sep
+                ? h('div', { className: 'gg-menu-sep', key: 'sep' + i })
+                : h('button', { className: 'gg-menu-item' + (item.danger ? ' danger' : ''), key: i, onClick: () => { const fn = item.onClick; setMenu(null); fn() } }, item.label),
+              ),
+            ),
           ),
+          modal && h(ConfirmModal, { modal, onClose: () => setModal(null) }),
+          toast && h('div', { className: 'gg-toast ' + toast.type }, toast.text),
         ),
+        document.body,
       ),
-      modal && h(ConfirmModal, { modal, onClose: () => setModal(null) }),
-      toast && h('div', { className: 'gg-toast ' + toast.type }, toast.text),
     )
   }
 
