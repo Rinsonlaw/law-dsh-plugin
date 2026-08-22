@@ -389,3 +389,14 @@ export async function deleteRemoteBranch(cwd, name, remote = 'origin') {
   assertRefArg(remote)
   await runGit(root, ['push', remote, '--delete', name])
 }
+
+/** push 当前分支到 upstream（可指定 remote/branch，可选 -u 建立追踪）。 */
+export async function push(cwd, { remote = '', branch = '', setUpstream = false } = {}) {
+  const root = await repoRoot(cwd)
+  const args = ['push']
+  if (setUpstream) args.push('-u')
+  if (remote) args.push(assertRefArg(remote))
+  if (branch) args.push(assertValidRef(branch, 'branch'))
+  const out = await runGit(root, args)
+  return { output: out.trim() }
+}

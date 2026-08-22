@@ -6,7 +6,7 @@
 import {
   getGraph, getCommit, getStatus,
   checkout, createBranch, renameBranch, deleteBranch, merge,
-  createTag, deleteTag, cherryPick, revert, reset, deleteRemoteBranch,
+  createTag, deleteTag, cherryPick, revert, reset, deleteRemoteBranch, push,
   currentBranch, GitError,
 } from './git.js'
 
@@ -233,6 +233,14 @@ export function apply(ctx) {
           const name = requireString(payload, 'name')
           if (!name) { writeJson(res, 400, badRequest('name is required')); return }
           writeOk(res, await runMutation(cwd, () => deleteRemoteBranch(cwd, name, requireString(payload, 'remote') || 'origin')))
+          return
+        }
+        if (method === 'push') {
+          writeOk(res, await runMutation(cwd, () => push(cwd, {
+            remote: requireString(payload, 'remote') || undefined,
+            branch: requireString(payload, 'branch') || undefined,
+            setUpstream: payload.setUpstream === true,
+          })))
           return
         }
         writeJson(res, 404, { ok: false, error: { code: 'not-found', message: 'unknown gitgraph method' } })

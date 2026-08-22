@@ -16,7 +16,7 @@ window.__ModuleLoader__.load({
 
     const React = require('react')
     const { createElement: h, useState, useEffect, useCallback, useRef, useMemo, Fragment } = React
-    const { IconBranchOutline16, IconRefreshOutline16, Tooltip } = require('@deepseek-ai/dsh-client-ui-primitives')
+    const { IconBranchOutline16, IconRefreshOutline16, IconSendOutline14, Tooltip } = require('@deepseek-ai/dsh-client-ui-primitives')
     const ReactDOM = require('react-dom')
 
     // Pure, framework-agnostic graph rendering for dsh-git-graph.
@@ -316,6 +316,8 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
       '.gg-btn:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary,#e6e6e6) 8%,transparent)}',
       '.gg-btn.primary{background:var(--dsw-alias-state-business-primary,#4c8dff);border-color:transparent;color:#fff}',
       '.gg-btn.primary:hover{background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#4c8dff) 78%,#fff);border-color:transparent}',
+      '.gg-btn.success{background:var(--dsw-alias-state-success-primary,#3fb950);border-color:transparent;color:#fff}',
+      '.gg-btn.success:hover{background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#3fb950) 78%,#fff);border-color:transparent}',
       '.gg-btn.gg-icon{padding:0;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;flex:none}',
       '.gg-body{flex:1;display:flex;min-height:0}',
       '.gg-graph-col{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:auto;border-right:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.08))}',
@@ -717,6 +719,11 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
             h('option', { value: 500 }, '最近 500'),
             h('option', { value: 1000 }, '最近 1000'),
             h('option', { value: 2000 }, '最近 2000'),
+          ),
+          h(Tooltip, { label: 'Push', side: 'bottom', delayMs: 400 },
+            h('button', { className: 'gg-btn success gg-icon', 'aria-label': 'Push', onClick: () => doMutation('push', {}, 'Push') },
+              h(IconSendOutline14, { size: 14 }),
+            ),
           ),
           h(Tooltip, { label: '刷新', side: 'bottom', delayMs: 400 },
             h('button', { className: 'gg-btn primary gg-icon', 'aria-label': '刷新', onClick: () => load(path) },
