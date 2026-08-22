@@ -268,7 +268,7 @@ function rowSlice(c, i, lanes, colorOf, maxCol, dirtyLink = null) {
   const cx = col => PAD_X + col * COL_W + COL_W / 2
   const parts = [`<svg class="gg-slice" width="${w}" height="${ROW_H}" viewBox="0 0 ${w} ${ROW_H}" style="position:static;width:${w}px;height:${ROW_H}px;display:block;flex:none;fill:none;stroke:none">`]
   if (dirtyLink) {
-    parts.push(`<line x1="${cx(c.col)}" y1="0" x2="${cx(c.col)}" y2="${ROW_H / 2}" stroke="${dirtyLink}" stroke-width="2" stroke-linecap="round" opacity="0.5"/>`)
+    parts.push(`<line x1="${cx(c.col)}" y1="0" x2="${cx(c.col)}" y2="${ROW_H / 2}" stroke="${dirtyLink}" stroke-width="2" stroke-dasharray="4 3" stroke-linecap="round" opacity="0.5"/>`)
   }
   for (let col = 0; col <= maxCol; col++) {
     const tc = lanes.top[i].get(col)
@@ -290,7 +290,7 @@ function dirtyRowHtml(maxCol, firstCol, dirtyCount, color) {
   const cx = PAD_X + firstCol * COL_W + COL_W / 2
   const svg =
     `<svg class="gg-slice" width="${w}" height="${ROW_H}" viewBox="0 0 ${w} ${ROW_H}" style="position:static;width:${w}px;height:${ROW_H}px;display:block;flex:none;fill:none;stroke:none">` +
-    `<line x1="${cx}" y1="${ROW_H / 2}" x2="${cx}" y2="${ROW_H}" stroke="${color}" stroke-width="2" stroke-linecap="round" opacity="0.5"/>` +
+    `<line x1="${cx}" y1="${ROW_H / 2}" x2="${cx}" y2="${ROW_H}" stroke="${color}" stroke-width="2" stroke-dasharray="4 3" stroke-linecap="round" opacity="0.5"/>` +
     `<circle cx="${cx}" cy="${ROW_H / 2}" r="${NODE_R}" fill="${color}" opacity="0.5"/>` +
     `</svg>`
   return (
