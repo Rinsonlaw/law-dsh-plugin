@@ -45,6 +45,8 @@ window.__ModuleLoader__.load({
       '.gg-detail{flex:1 1 40%;min-width:280px;max-width:46%;display:flex;flex-direction:column;min-height:0;overflow:auto;padding:12px 14px}',
       '.gg-graph-scroll{min-width:max-content}',
       '.gg-count-line{flex:none;padding:4px 12px;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b94a7);border-bottom:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.06));position:sticky;top:0;background:var(--dsw-alias-bg-base,#0f1115);z-index:1}',
+      '.gg-count-line.pushing{color:var(--dsw-alias-state-business-primary,#4c8dff);font-weight:600}',
+      '.gg-btn:disabled{opacity:.5;cursor:default}',
       '.gg-slice{flex:none;display:block;position:static;width:auto;height:auto}',
       '.gg-panel svg,.gg-overlay svg,.gg-toggle svg{position:static;width:auto;height:auto;flex:none}',
       '.gg-row{display:flex;align-items:center;gap:6px;padding:0 10px 0 4px;cursor:pointer;white-space:nowrap;box-sizing:border-box;border-left:2px solid transparent;flex:none}',
@@ -151,6 +153,7 @@ window.__ModuleLoader__.load({
       const [toast, setToast] = useState(null)
       const [query, setQuery] = useState('')
       const [authorFilter, setAuthorFilter] = useState('')
+      const [pushing, setPushing] = useState(false)
       const scrollRef = useRef(null)
       const maxCountRef = useRef(maxCount)
       useEffect(() => { maxCountRef.current = maxCount }, [maxCount])
@@ -209,6 +212,20 @@ window.__ModuleLoader__.load({
           setToast({ type: 'err', text: `${label} 失败：${error?.message ?? error}` })
         }
       }, [sessionId, path, load])
+
+      const doPush = useCallback(async () => {
+        if (pushing) return
+        setPushing(true)
+        try {
+          await api('push', { sessionId, cwd: path || undefined })
+          setToast({ type: 'ok', text: '推送成功' })
+          load(path)
+        } catch (error) {
+          setToast({ type: 'err', text: '推送失败：' + (error?.message ?? error) })
+        } finally {
+          setPushing(false)
+        }
+      }, [pushing, sessionId, path, load])
 
       const statusNote = async () => {
         try {
@@ -444,8 +461,8 @@ window.__ModuleLoader__.load({
             h('option', { value: 1000 }, '最近 1000'),
             h('option', { value: 2000 }, '最近 2000'),
           ),
-          h(Tooltip, { label: 'Push', side: 'bottom', delayMs: 400 },
-            h('button', { className: 'gg-btn success gg-icon', 'aria-label': 'Push', onClick: () => doMutation('push', {}, 'Push') },
+          h(Tooltip, { label: pushing ? '推送中' : '推送', side: 'bottom', delayMs: 400 },
+            h('button', { className: 'gg-btn success gg-icon', 'aria-label': '推送', disabled: pushing, onClick: doPush },
               h(IconSendOutline14, { size: 14 }),
             ),
           ),
@@ -461,10 +478,12 @@ window.__ModuleLoader__.load({
             state.status === 'error' && h('div', { className: 'gg-status err' }, 'Error: ' + state.error),
             state.status === 'ready' && state.data && !state.data.isRepo && h('div', { className: 'gg-status' }, 'Not a git repository. Enter a repository path above.'),
             state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length === 0 && h('div', { className: 'gg-status' }, 'No commits yet.'),
-            state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length > 0 && h('div', { className: 'gg-count-line' },
-              filteredCommits.length === state.data.commits.length
-                ? `${state.data.commits.length} commits`
-                : `匹配 ${filteredCommits.length} / ${state.data.commits.length} commits`,
+            state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length > 0 && h('div', { className: 'gg-count-line' + (pushing ? ' pushing' : '') },
+              pushing
+                ? '推送中…'
+                : (filteredCommits.length === state.data.commits.length
+                  ? `${state.data.commits.length} commits`
+                  : `匹配 ${filteredCommits.length} / ${state.data.commits.length} commits`),
             ),
             state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length > 0 && h('div', {
               className: 'gg-graph-scroll',
