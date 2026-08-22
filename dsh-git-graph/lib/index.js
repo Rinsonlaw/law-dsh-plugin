@@ -3,7 +3,12 @@
 // working directory and return the commit DAG / commit detail as JSON.
 // The client half (lib/client.js) fetches these routes.
 
-import { getGraph, getCommit, GitError } from './git.js'
+import {
+  getGraph, getCommit, getStatus,
+  checkout, createBranch, renameBranch, deleteBranch, merge,
+  createTag, deleteTag, cherryPick, revert, reset, deleteRemoteBranch,
+  currentBranch, GitError,
+} from './git.js'
 
 export const name = 'git-graph'
 export const inject = ['webServer', 'sessions', 'webRuntime']
@@ -55,6 +60,29 @@ function writeError(res, error) {
     ok: false,
     error: { code: error?.code ?? 'internal', message: error?.message ?? String(error) },
   })
+}
+
+function badRequest(message) {
+  return { ok: false, error: { code: 'bad-request', message } }
+}
+
+function requireString(payload, key) {
+  return typeof payload[key] === 'string' ? payload[key].trim() : ''
+}
+
+/**
+ * 执行一个写操作并统一响应：成功返回 `{ success, branch, ...result }`；
+ * 冲突（merge/cherry-pick/revert）返回 `{ success:false, conflict:true }`。
+ */
+async function runMutation(cwd, fn) {
+  const result = await fn()
+  let branch = null
+  try { branch = await currentBranch(cwd) } catch { /* keep null */ }
+  const obj = result && typeof result === 'object' ? result : {}
+  if (obj.conflict === true) {
+    return { success: false, conflict: true, output: obj.output ?? '', branch }
+  }
+  return { success: true, branch, ...obj }
 }
 
 async function readJsonBody(req) {
@@ -135,6 +163,76 @@ export function apply(ctx) {
             return
           }
           writeOk(res, await getCommit(cwd, hash))
+          return
+        }
+        // ── 写操作 ─────────────────────────────────────────────────────────
+        if (method === 'status') { writeOk(res, await getStatus(cwd)); return }
+        if (method === 'checkout') {
+          const ref = requireString(payload, 'ref')
+          if (!ref) { writeJson(res, 400, badRequest('ref is required')); return }
+          writeOk(res, await runMutation(cwd, () => checkout(cwd, ref, { detach: payload.detach === true })))
+          return
+        }
+        if (method === 'createBranch') {
+          const name = requireString(payload, 'name')
+          if (!name) { writeJson(res, 400, badRequest('name is required')); return }
+          writeOk(res, await runMutation(cwd, () => createBranch(cwd, name, requireString(payload, 'from') || undefined, { checkout: payload.checkout === true })))
+          return
+        }
+        if (method === 'renameBranch') {
+          const oldName = requireString(payload, 'oldName')
+          const newName = requireString(payload, 'newName')
+          if (!oldName || !newName) { writeJson(res, 400, badRequest('oldName and newName are required')); return }
+          writeOk(res, await runMutation(cwd, () => renameBranch(cwd, oldName, newName)))
+          return
+        }
+        if (method === 'deleteBranch') {
+          const name = requireString(payload, 'name')
+          if (!name) { writeJson(res, 400, badRequest('name is required')); return }
+          writeOk(res, await runMutation(cwd, () => deleteBranch(cwd, name, { force: payload.force === true })))
+          return
+        }
+        if (method === 'merge') {
+          const ref = requireString(payload, 'ref')
+          if (!ref) { writeJson(res, 400, badRequest('ref is required')); return }
+          writeOk(res, await runMutation(cwd, () => merge(cwd, ref, { noFf: payload.noFf === true, squash: payload.squash === true })))
+          return
+        }
+        if (method === 'createTag') {
+          const name = requireString(payload, 'name')
+          if (!name) { writeJson(res, 400, badRequest('name is required')); return }
+          writeOk(res, await runMutation(cwd, () => createTag(cwd, name, requireString(payload, 'hash') || undefined)))
+          return
+        }
+        if (method === 'deleteTag') {
+          const name = requireString(payload, 'name')
+          if (!name) { writeJson(res, 400, badRequest('name is required')); return }
+          writeOk(res, await runMutation(cwd, () => deleteTag(cwd, name)))
+          return
+        }
+        if (method === 'cherryPick') {
+          const hash = requireString(payload, 'hash')
+          if (!hash) { writeJson(res, 400, badRequest('hash is required')); return }
+          writeOk(res, await runMutation(cwd, () => cherryPick(cwd, hash)))
+          return
+        }
+        if (method === 'revert') {
+          const hash = requireString(payload, 'hash')
+          if (!hash) { writeJson(res, 400, badRequest('hash is required')); return }
+          writeOk(res, await runMutation(cwd, () => revert(cwd, hash)))
+          return
+        }
+        if (method === 'reset') {
+          const hash = requireString(payload, 'hash')
+          const mode = requireString(payload, 'mode') || 'mixed'
+          if (!hash) { writeJson(res, 400, badRequest('hash is required')); return }
+          writeOk(res, await runMutation(cwd, () => reset(cwd, hash, mode)))
+          return
+        }
+        if (method === 'deleteRemoteBranch') {
+          const name = requireString(payload, 'name')
+          if (!name) { writeJson(res, 400, badRequest('name is required')); return }
+          writeOk(res, await runMutation(cwd, () => deleteRemoteBranch(cwd, name, requireString(payload, 'remote') || 'origin')))
           return
         }
         writeJson(res, 404, { ok: false, error: { code: 'not-found', message: 'unknown gitgraph method' } })

@@ -126,16 +126,16 @@ function fmtDate(iso) {
 function refsHtml(refs) {
   if (!Array.isArray(refs) || refs.length === 0) return ''
   return refs.map(r => {
-    if (r === 'HEAD') return '<span class="gg-ref gg-ref-head">HEAD</span>'
+    if (r === 'HEAD') return '<span class="gg-ref gg-ref-head" data-kind="head">HEAD</span>'
     if (r.startsWith('HEAD ->')) {
       const branch = r.slice('HEAD ->'.length).trim()
-      const head = '<span class="gg-ref gg-ref-head">HEAD</span>'
-      const b = branch ? `<span class="gg-ref gg-ref-current">${esc(branch)}</span>` : ''
+      const head = '<span class="gg-ref gg-ref-head" data-kind="head">HEAD</span>'
+      const b = branch ? `<span class="gg-ref gg-ref-current" data-kind="branch" data-ref="${esc(branch)}">${esc(branch)}</span>` : ''
       return head + b
     }
-    if (r.startsWith('tag: ')) return `<span class="gg-ref gg-ref-tag">${esc(r.slice(5))}</span>`
-    if (r.includes('/')) return `<span class="gg-ref gg-ref-remote">${esc(r)}</span>`
-    return `<span class="gg-ref gg-ref-branch">${esc(r)}</span>`
+    if (r.startsWith('tag: ')) return `<span class="gg-ref gg-ref-tag" data-kind="tag" data-ref="${esc(r.slice(5))}">${esc(r.slice(5))}</span>`
+    if (r.includes('/')) return `<span class="gg-ref gg-ref-remote" data-kind="remote" data-ref="${esc(r)}">${esc(r)}</span>`
+    return `<span class="gg-ref gg-ref-branch" data-kind="branch" data-ref="${esc(r)}">${esc(r)}</span>`
   }).join('')
 }
 
@@ -363,6 +363,27 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
       '.gg-overlay-head .gg-title{font-weight:600}',
       '.gg-close{margin-left:auto;font:inherit;font-size:16px;line-height:1;color:var(--dsw-alias-label-secondary,#c9d1d9);background:transparent;border:none;cursor:pointer;padding:4px 8px;border-radius:6px}',
       '.gg-close:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary,#e6e6e6) 8%,transparent)}',
+      // 写操作：右键菜单 / 确认弹窗 / toast
+      '.gg-btn.danger{background:#b62324;border-color:transparent;color:#fff}',
+      '.gg-btn.danger:hover{background:#d1242f}',
+      '.gg-menu-backdrop{position:fixed;inset:0;z-index:2147483500}',
+      '.gg-context-menu{position:fixed;z-index:2147483600;min-width:220px;max-width:320px;background:var(--dsw-alias-bg-layer-1,#1a1d24);border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.1));border-radius:8px;padding:4px;box-shadow:0 10px 30px rgba(0,0,0,.5)}',
+      '.gg-menu-item{display:block;width:100%;text-align:left;font:inherit;font-size:12px;color:var(--dsw-alias-label-primary,#e6e6e6);background:transparent;border:none;border-radius:5px;padding:6px 10px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.gg-menu-item:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary,#e6e6e6) 8%,transparent)}',
+      '.gg-menu-item.danger{color:var(--dsw-alias-state-error-primary,#f85149)}',
+      '.gg-menu-item.danger:hover{background:color-mix(in srgb,var(--dsw-alias-state-error-primary,#f85149) 12%,transparent)}',
+      '.gg-menu-sep{height:1px;margin:4px 6px;background:var(--dsw-alias-border-l1,rgba(255,255,255,.08))}',
+      '.gg-modal-backdrop{position:fixed;inset:0;z-index:2147483700;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center}',
+      '.gg-modal{width:min(440px,92vw);background:var(--dsw-alias-bg-base,#0f1115);border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.12));border-radius:12px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:10px}',
+      '.gg-modal-title{font-size:14px;font-weight:600}',
+      '.gg-modal-cmd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--dsw-alias-label-secondary,#c9d1d9);background:var(--dsw-alias-bg-layer-1,#1a1d24);border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.08));border-radius:6px;padding:6px 8px;word-break:break-all}',
+      '.gg-modal-note{font-size:12px;color:var(--dsw-alias-label-tertiary,#8b94a7)}',
+      '.gg-modal-input{width:100%}',
+      '.gg-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:2px}',
+      '.gg-toast{position:fixed;bottom:24px;right:24px;z-index:2147483800;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.5)}',
+      '.gg-toast.ok{background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#3fb950) 20%,#0f1115);color:#3fb950;border:1px solid color-mix(in srgb,#3fb950 30%,transparent)}',
+      '.gg-toast.err{background:color-mix(in srgb,var(--dsw-alias-state-error-primary,#f85149) 20%,#0f1115);color:#f85149;border:1px solid color-mix(in srgb,#f85149 30%,transparent)}',
+      '.gg-toast.warn{background:color-mix(in srgb,#e3b341 20%,#0f1115);color:#e3b341;border:1px solid color-mix(in srgb,#e3b341 30%,transparent)}',
     ].join('\n')
 
     if (typeof document !== 'undefined' && !document.querySelector('style[data-plugin-css="dsh-git-graph"]')) {
@@ -395,9 +416,18 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
       const [maxCount, setMaxCount] = useState(300)
       const [selected, setSelected] = useState(null)
       const [detail, setDetail] = useState({ status: 'idle', data: null, error: null })
+      const [menu, setMenu] = useState(null)
+      const [modal, setModal] = useState(null)
+      const [toast, setToast] = useState(null)
       const scrollRef = useRef(null)
       const maxCountRef = useRef(maxCount)
       useEffect(() => { maxCountRef.current = maxCount }, [maxCount])
+
+      useEffect(() => {
+        if (!toast) return
+        const t = setTimeout(() => setToast(null), 4200)
+        return () => clearTimeout(t)
+      }, [toast])
 
       const load = useCallback(async (targetPath) => {
         setState(s => ({ ...s, status: 'loading', error: null }))
@@ -432,6 +462,167 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
         if (row) openCommit(row.dataset.hash)
       }
 
+      // ── 写操作：执行 + 右键菜单 + 确认弹窗 ───────────────────────────────
+
+      const doMutation = useCallback(async (method, payload, label) => {
+        try {
+          const res = await api(method, { sessionId, cwd: path || undefined, ...payload })
+          if (res && res.conflict === true) {
+            setToast({ type: 'warn', text: `${label} 产生冲突，请手动解决后刷新` })
+          } else {
+            setToast({ type: 'ok', text: `${label} 成功` })
+          }
+          load(path)
+        } catch (error) {
+          setToast({ type: 'err', text: `${label} 失败：${error?.message ?? error}` })
+        }
+      }, [sessionId, path, load])
+
+      const statusNote = async () => {
+        try {
+          const st = await api('status', { sessionId, cwd: path || undefined })
+          if (st && st.dirty > 0) return `⚠ 工作区有 ${st.dirty} 个未提交变更，此操作可能受影响。`
+        } catch { /* ignore */ }
+        return ''
+      }
+
+      const openModal = async (builder) => { setModal(builder(await statusNote())) }
+
+      const confirmCheckout = (ref, detach) => {
+        openModal(note => ({
+          title: detach ? '切换到提交（detached HEAD）' : `切换到分支 ${ref}`,
+          command: `git checkout${detach ? ' --detach' : ''} ${ref}`,
+          note, danger: false, inputs: [], confirmText: '切换',
+          onSubmit: () => doMutation('checkout', { ref, detach }, `切换到 ${ref}`),
+        }))
+      }
+
+      const promptCreateBranch = (hash) => {
+        setModal({
+          title: '新建分支', command: `git branch <name> ${hash.slice(0, 7)}`, note: '', danger: false,
+          inputs: [{ key: 'name', label: '分支名', placeholder: 'feature/xxx', initial: '' }], confirmText: '创建',
+          onSubmit: (values) => doMutation('createBranch', { name: values.name, from: hash }, `新建分支 ${values.name}`),
+        })
+      }
+
+      const promptCreateTag = (hash) => {
+        setModal({
+          title: '打 tag', command: `git tag <name> ${hash.slice(0, 7)}`, note: '', danger: false,
+          inputs: [{ key: 'name', label: 'Tag 名', placeholder: 'v1.0.0', initial: '' }], confirmText: '创建',
+          onSubmit: (values) => doMutation('createTag', { name: values.name, hash }, `打 tag ${values.name}`),
+        })
+      }
+
+      const promptRename = (name) => {
+        setModal({
+          title: `重命名分支 ${name}`, command: `git branch -m ${name} <new-name>`, note: '', danger: false,
+          inputs: [{ key: 'name', label: '新分支名', placeholder: 'feature/new-name', initial: '' }], confirmText: '重命名',
+          onSubmit: (values) => doMutation('renameBranch', { oldName: name, newName: values.name }, `重命名 ${name} → ${values.name}`),
+        })
+      }
+
+      const confirmDeleteBranch = (name) => {
+        setModal({
+          title: `删除本地分支 ${name}`, command: `git branch -d ${name}`,
+          note: '仅当分支已合并到上游时才删除。', danger: false, inputs: [], confirmText: '删除',
+          onSubmit: () => doMutation('deleteBranch', { name, force: false }, `删除分支 ${name}`),
+        })
+      }
+
+      const confirmDeleteRemote = (name) => {
+        setModal({
+          title: `删除远程分支 ${name}`, command: `git push origin --delete ${name}`,
+          note: '将从 origin 删除远程分支，此操作不可逆。', danger: true,
+          inputs: [{ key: 'confirm', label: `输入 ${name} 确认`, placeholder: name, initial: '' }], confirmText: '删除',
+          onSubmit: (values) => {
+            if (values.confirm !== name) { setToast({ type: 'err', text: '输入的分支名不匹配' }); throw new Error('mismatch') }
+            return doMutation('deleteRemoteBranch', { name }, `删除远程分支 ${name}`)
+          },
+        })
+      }
+
+      const confirmDeleteTag = (name) => {
+        setModal({
+          title: `删除 tag ${name}`, command: `git tag -d ${name}`, note: '', danger: false, inputs: [], confirmText: '删除',
+          onSubmit: () => doMutation('deleteTag', { name }, `删除 tag ${name}`),
+        })
+      }
+
+      const confirmMerge = (ref) => {
+        openModal(note => ({
+          title: `合并 ${ref} 到当前分支`, command: `git merge ${ref}`, note, danger: false, inputs: [], confirmText: '合并',
+          onSubmit: () => doMutation('merge', { ref }, `合并 ${ref}`),
+        }))
+      }
+
+      const confirmCherryPick = (hash) => {
+        openModal(note => ({
+          title: 'cherry-pick', command: `git cherry-pick ${hash.slice(0, 7)}`, note, danger: false, inputs: [], confirmText: 'cherry-pick',
+          onSubmit: () => doMutation('cherryPick', { hash }, `cherry-pick ${hash.slice(0, 7)}`),
+        }))
+      }
+
+      const confirmRevert = (hash) => {
+        openModal(note => ({
+          title: 'revert', command: `git revert --no-edit ${hash.slice(0, 7)}`, note, danger: false, inputs: [], confirmText: 'revert',
+          onSubmit: () => doMutation('revert', { hash }, `revert ${hash.slice(0, 7)}`),
+        }))
+      }
+
+      const confirmReset = (hash, mode) => {
+        const hard = mode === 'hard'
+        const note = hard
+          ? '⚠ --hard 会丢弃工作区与暂存区的所有未提交变更，不可恢复！'
+          : (mode === 'soft' ? '保留工作区与暂存区，仅移动分支指针。' : '保留工作区，重置暂存区。')
+        setModal({
+          title: `reset 到 ${hash.slice(0, 7)}（--${mode}）`, command: `git reset --${mode} ${hash.slice(0, 7)}`,
+          note, danger: hard,
+          inputs: hard ? [{ key: 'confirm', label: '输入 RESET 确认', placeholder: 'RESET', initial: '' }] : [], confirmText: 'reset',
+          onSubmit: (values) => {
+            if (hard && values.confirm !== 'RESET') { setToast({ type: 'err', text: '请输入 RESET 确认' }); throw new Error('mismatch') }
+            return doMutation('reset', { hash, mode }, `reset --${mode} ${hash.slice(0, 7)}`)
+          },
+        })
+      }
+
+      const onContextMenu = (e) => {
+        const rowEl = e.target.closest('.gg-row')
+        if (!rowEl) return
+        const hash = rowEl.dataset.hash
+        if (!hash) return
+        e.preventDefault()
+        const refEl = e.target.closest('.gg-ref')
+        const items = []
+        if (refEl && refEl.dataset.kind) {
+          const kind = refEl.dataset.kind
+          const name = refEl.dataset.ref || ''
+          if (kind === 'branch' && name) {
+            items.push({ label: `切换到 ${name}`, danger: false, onClick: () => confirmCheckout(name, false) })
+            items.push({ label: `合并 ${name} 到当前分支`, danger: false, onClick: () => confirmMerge(name) })
+            items.push({ sep: true })
+            items.push({ label: `重命名 ${name}…`, danger: false, onClick: () => promptRename(name) })
+            items.push({ label: `删除本地分支 ${name}`, danger: false, onClick: () => confirmDeleteBranch(name) })
+            items.push({ label: `删除远程分支 ${name}`, danger: true, onClick: () => confirmDeleteRemote(name) })
+          } else if (kind === 'tag' && name) {
+            items.push({ label: `删除 tag ${name}`, danger: false, onClick: () => confirmDeleteTag(name) })
+          }
+        } else {
+          items.push({ label: '切换到此提交（detached）', danger: false, onClick: () => confirmCheckout(hash, true) })
+          items.push({ label: '新建分支…', danger: false, onClick: () => promptCreateBranch(hash) })
+          items.push({ label: '打 tag…', danger: false, onClick: () => promptCreateTag(hash) })
+          items.push({ sep: true })
+          items.push({ label: 'cherry-pick', danger: false, onClick: () => confirmCherryPick(hash) })
+          items.push({ label: 'revert', danger: false, onClick: () => confirmRevert(hash) })
+          items.push({ label: 'reset（--soft）', danger: false, onClick: () => confirmReset(hash, 'soft') })
+          items.push({ label: 'reset（--mixed）', danger: false, onClick: () => confirmReset(hash, 'mixed') })
+          items.push({ label: 'reset（--hard）', danger: true, onClick: () => confirmReset(hash, 'hard') })
+        }
+        if (items.length === 0) return
+        const x = Math.min(e.clientX, (typeof window !== 'undefined' ? window.innerWidth : 1000) - 260)
+        const y = Math.min(e.clientY, (typeof window !== 'undefined' ? window.innerHeight : 800) - items.length * 30 - 16)
+        setMenu({ x, y, items })
+      }
+
       const layoutData = useMemo(() => {
         const commits = state.data?.commits ?? []
         return layout(commits)
@@ -443,7 +634,7 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
         return graphHtml(layoutData.rows, layoutData.maxCol, layoutData.rowOf, colorOf, selected)
       }, [layoutData, state.data, selected])
 
-      return h('div', { className: 'gg-panel' },
+      return h(Fragment, null, h('div', { className: 'gg-panel' },
         h('div', { className: 'gg-toolbar' },
           h('span', { className: 'gg-title' },
             h(IconBranchOutline16, { size: 16 }),
@@ -482,6 +673,7 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
               className: 'gg-graph-scroll',
               ref: scrollRef,
               onClick: onRowClick,
+              onContextMenu: onContextMenu,
               dangerouslySetInnerHTML: { __html: graphMarkup },
             }),
           ),
@@ -512,6 +704,65 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
                 detail.data.diff ? h('div', { className: 'gg-diff', dangerouslySetInnerHTML: { __html: diffHtml(detail.data.diff) } }) : h('div', { className: 'gg-empty' }, 'No diff available.'),
               ),
             ),
+          ),
+        ),
+      ),
+      menu && h(Fragment, null,
+        h('div', { className: 'gg-menu-backdrop', onClick: () => setMenu(null) }),
+        h('div', { className: 'gg-context-menu', style: { left: menu.x, top: menu.y }, onClick: e => e.stopPropagation() },
+          menu.items.map((item, i) => item.sep
+            ? h('div', { className: 'gg-menu-sep', key: 'sep' + i })
+            : h('button', { className: 'gg-menu-item' + (item.danger ? ' danger' : ''), key: i, onClick: () => { const fn = item.onClick; setMenu(null); fn() } }, item.label),
+          ),
+        ),
+      ),
+      modal && h(ConfirmModal, { modal, onClose: () => setModal(null) }),
+      toast && h('div', { className: 'gg-toast ' + toast.type }, toast.text),
+    )
+  }
+
+    // ── 确认弹窗 ────────────────────────────────────────────────────────────
+
+    function ConfirmModal({ modal, onClose }) {
+      const [values, setValues] = useState({})
+      const [busy, setBusy] = useState(false)
+      useEffect(() => {
+        const init = {}
+        const inputs = modal.inputs || []
+        inputs.forEach(i => { init[i.key] = i.initial || '' })
+        setValues(init)
+        setBusy(false)
+      }, [modal])
+      const set = (key, val) => setValues(v => ({ ...v, [key]: val }))
+      const submit = async () => {
+        if (busy) return
+        setBusy(true)
+        try {
+          await modal.onSubmit(values)
+          onClose()
+        } catch (e) {
+          // 校验不通过：留在弹窗让用户重试，错误已通过 toast 提示
+        } finally {
+          setBusy(false)
+        }
+      }
+      return h('div', { className: 'gg-modal-backdrop', onClick: onClose },
+        h('div', { className: 'gg-modal', onClick: e => e.stopPropagation() },
+          h('div', { className: 'gg-modal-title' }, modal.title),
+          modal.command ? h('div', { className: 'gg-modal-cmd' }, modal.command) : null,
+          modal.note ? h('div', { className: 'gg-modal-note' }, modal.note) : null,
+          (modal.inputs || []).map(inp =>
+            h('input', {
+              key: inp.key, className: 'gg-input gg-modal-input',
+              placeholder: inp.placeholder, value: values[inp.key] ?? '',
+              autoFocus: true, spellCheck: false,
+              onChange: e => set(inp.key, e.target.value),
+              onKeyDown: e => { if (e.key === 'Enter') submit() },
+            }),
+          ),
+          h('div', { className: 'gg-modal-actions' },
+            h('button', { className: 'gg-btn', onClick: onClose, disabled: busy }, '取消'),
+            h('button', { className: 'gg-btn primary' + (modal.danger ? ' danger' : ''), onClick: submit, disabled: busy }, busy ? '执行中…' : modal.confirmText),
           ),
         ),
       )

@@ -106,16 +106,16 @@ export function fmtDate(iso) {
 export function refsHtml(refs) {
   if (!Array.isArray(refs) || refs.length === 0) return ''
   return refs.map(r => {
-    if (r === 'HEAD') return '<span class="gg-ref gg-ref-head">HEAD</span>'
+    if (r === 'HEAD') return '<span class="gg-ref gg-ref-head" data-kind="head">HEAD</span>'
     if (r.startsWith('HEAD ->')) {
       const branch = r.slice('HEAD ->'.length).trim()
-      const head = '<span class="gg-ref gg-ref-head">HEAD</span>'
-      const b = branch ? `<span class="gg-ref gg-ref-current">${esc(branch)}</span>` : ''
+      const head = '<span class="gg-ref gg-ref-head" data-kind="head">HEAD</span>'
+      const b = branch ? `<span class="gg-ref gg-ref-current" data-kind="branch" data-ref="${esc(branch)}">${esc(branch)}</span>` : ''
       return head + b
     }
-    if (r.startsWith('tag: ')) return `<span class="gg-ref gg-ref-tag">${esc(r.slice(5))}</span>`
-    if (r.includes('/')) return `<span class="gg-ref gg-ref-remote">${esc(r)}</span>`
-    return `<span class="gg-ref gg-ref-branch">${esc(r)}</span>`
+    if (r.startsWith('tag: ')) return `<span class="gg-ref gg-ref-tag" data-kind="tag" data-ref="${esc(r.slice(5))}">${esc(r.slice(5))}</span>`
+    if (r.includes('/')) return `<span class="gg-ref gg-ref-remote" data-kind="remote" data-ref="${esc(r)}">${esc(r)}</span>`
+    return `<span class="gg-ref gg-ref-branch" data-kind="branch" data-ref="${esc(r)}">${esc(r)}</span>`
   }).join('')
 }
 

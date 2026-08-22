@@ -196,3 +196,196 @@ export async function getCommit(cwd, hash) {
     diff,
   }
 }
+
+// ── 写操作 ────────────────────────────────────────────────────────────────
+// 所有 mutation 都走上面的 runGit()（spawn 数组，天然防 shell 注入），并
+// 对分支名 / hash / ref 参数做白名单式校验，拒绝选项注入与非法字符。
+
+/** 校验分支名 / tag 名（新建、重命名、删除用）。 */
+export function assertValidRef(name, kind = 'ref') {
+  if (typeof name !== 'string' || name === '' || name.length > 255) {
+    throw new GitError(`invalid ${kind} name`, `validate-${kind}`)
+  }
+  if (/\s/.test(name) || name.startsWith('-') || name.includes('..')
+    || /[~^:?*\[\\]/.test(name) || name.startsWith('/') || name.endsWith('/')
+    || name.includes('//') || name.endsWith('.') || name.endsWith('.lock')
+    || name === '@' || name.includes('@{')) {
+    throw new GitError(`invalid ${kind} name: ${name}`, `validate-${kind}`)
+  }
+  return name
+}
+
+/** 校验 commit hash（7–40 位十六进制）。 */
+export function assertValidHash(hash) {
+  if (typeof hash !== 'string' || !/^[0-9a-f]{7,40}$/i.test(hash)) {
+    throw new GitError(`invalid commit hash: ${String(hash).slice(0, 40)}`, 'validate-hash')
+  }
+  return hash
+}
+
+/** 校验要传给 checkout/merge 等命令的 ref 实参（防 `--option` 注入）。 */
+function assertRefArg(ref) {
+  if (typeof ref !== 'string' || ref === '' || ref.startsWith('-') || /\s/.test(ref)) {
+    throw new GitError(`invalid ref: ${String(ref).slice(0, 60)}`, 'validate-ref')
+  }
+  return ref
+}
+
+const HASH_RE = /^[0-9a-f]{7,40}$/i
+
+/** 工作区状态：当前分支、upstream、ahead/behind、未提交变更文件。 */
+export async function getStatus(cwd) {
+  const root = await repoRoot(cwd)
+  const raw = await runGit(root, ['status', '--porcelain=v1', '-b'])
+  const lines = raw.split('\n')
+  const header = (lines[0] ?? '').replace(/^##\s*/, '').trim()
+  let branch = 'HEAD'
+  let detached = false
+  let upstream = ''
+  let ahead = 0
+  let behind = 0
+  if (header.startsWith('No commits yet') || header.startsWith('Initial commit')) {
+    branch = header.replace(/^(No commits yet on|Initial commit on)\s*/, '')
+  } else if (header.startsWith('HEAD')) {
+    detached = true
+  } else {
+    const m = header.match(/^(.+?)(?:\.\.\.([^\s\[]+))?(?:\s+\[(.+)\])?$/)
+    if (m) {
+      branch = m[1]
+      upstream = m[2] ?? ''
+      const track = m[3] ?? ''
+      const am = track.match(/ahead (\d+)/)
+      const bm = track.match(/behind (\d+)/)
+      ahead = am ? Number(am[1]) : 0
+      behind = bm ? Number(bm[1]) : 0
+    } else {
+      branch = header
+    }
+  }
+  const files = lines.slice(1).filter(l => l.trim() !== '').map(l => ({ code: l.slice(0, 2), path: l.slice(3) }))
+  return { root, branch, detached, upstream, ahead, behind, dirty: files.length, files }
+}
+
+/** 是否存在未解决的合并冲突（`UU`/`AA`/`DD` 等 unmerged 状态）。 */
+async function hasConflicts(cwd) {
+  try {
+    const out = await runGit(cwd, ['status', '--porcelain'])
+    return /^(UU|AA|DD|AU|UA|DU|UD)/m.test(out)
+  } catch {
+    return false
+  }
+}
+
+/** 切换分支 / 提交（hash 自动 detach）。返回切换后的分支名。 */
+export async function checkout(cwd, ref, { detach = false } = {}) {
+  const root = await repoRoot(cwd)
+  const args = ['checkout']
+  if (detach || HASH_RE.test(ref)) args.push('--detach')
+  args.push(assertRefArg(ref))
+  await runGit(root, args)
+  return currentBranch(root).catch(() => 'HEAD')
+}
+
+/** 新建分支（可选 `checkout` 直接切过去），`from` 可为 hash 或 ref。 */
+export async function createBranch(cwd, name, from, { checkout: co = false } = {}) {
+  const root = await repoRoot(cwd)
+  assertValidRef(name, 'branch')
+  const args = co ? ['checkout', '-b', name] : ['branch', name]
+  if (from) args.push(HASH_RE.test(from) ? assertValidHash(from) : assertRefArg(from))
+  await runGit(root, args)
+  return co ? currentBranch(root).catch(() => name) : name
+}
+
+/** 重命名分支。 */
+export async function renameBranch(cwd, oldName, newName) {
+  const root = await repoRoot(cwd)
+  assertValidRef(oldName, 'branch')
+  assertValidRef(newName, 'branch')
+  await runGit(root, ['branch', '-m', oldName, newName])
+  return newName
+}
+
+/** 删除本地分支（`force` 时 `-D`）。 */
+export async function deleteBranch(cwd, name, { force = false } = {}) {
+  const root = await repoRoot(cwd)
+  assertValidRef(name, 'branch')
+  await runGit(root, ['branch', force ? '-D' : '-d', name])
+}
+
+/** 合并 ref 到当前分支；冲突时返回 `{ conflict: true }` 而非抛错。 */
+export async function merge(cwd, ref, { noFf = false, squash = false } = {}) {
+  const root = await repoRoot(cwd)
+  assertRefArg(ref)
+  const args = ['merge']
+  if (noFf) args.push('--no-ff')
+  if (squash) args.push('--squash')
+  args.push(ref)
+  try {
+    const out = await runGit(root, args)
+    return { conflict: false, output: out.trim() }
+  } catch (error) {
+    if (await hasConflicts(root)) return { conflict: true, output: error.message }
+    throw error
+  }
+}
+
+/** 打 tag（可指向指定 hash，默认 HEAD）。 */
+export async function createTag(cwd, name, hash) {
+  const root = await repoRoot(cwd)
+  assertValidRef(name, 'tag')
+  const args = ['tag', name]
+  if (hash) args.push(assertValidHash(hash))
+  await runGit(root, args)
+}
+
+/** 删除本地 tag。 */
+export async function deleteTag(cwd, name) {
+  const root = await repoRoot(cwd)
+  assertValidRef(name, 'tag')
+  await runGit(root, ['tag', '-d', name])
+}
+
+/** cherry-pick 一个提交；冲突时返回 `{ conflict: true }`。 */
+export async function cherryPick(cwd, hash) {
+  const root = await repoRoot(cwd)
+  assertValidHash(hash)
+  try {
+    const out = await runGit(root, ['cherry-pick', hash])
+    return { conflict: false, output: out.trim() }
+  } catch (error) {
+    if (await hasConflicts(root)) return { conflict: true, output: error.message }
+    throw error
+  }
+}
+
+/** revert 一个提交（不打开编辑器）；冲突时返回 `{ conflict: true }`。 */
+export async function revert(cwd, hash) {
+  const root = await repoRoot(cwd)
+  assertValidHash(hash)
+  try {
+    const out = await runGit(root, ['revert', '--no-edit', hash])
+    return { conflict: false, output: out.trim() }
+  } catch (error) {
+    if (await hasConflicts(root)) return { conflict: true, output: error.message }
+    throw error
+  }
+}
+
+const RESET_MODES = new Set(['soft', 'mixed', 'hard'])
+
+/** reset 到指定提交（mode: soft | mixed | hard）。 */
+export async function reset(cwd, hash, mode = 'mixed') {
+  const root = await repoRoot(cwd)
+  assertValidHash(hash)
+  if (!RESET_MODES.has(mode)) throw new GitError(`invalid reset mode: ${mode}`, 'validate-reset')
+  await runGit(root, ['reset', `--${mode}`, hash])
+  return currentBranch(root).catch(() => 'HEAD')
+}
+
+/** 删除远程分支（默认 origin）。 */
+export async function deleteRemoteBranch(cwd, name, remote = 'origin') {
+  const root = await repoRoot(cwd)
+  assertValidRef(name, 'branch')
+  assertRefArg(remote)
+  await runGit(root, ['push', remote, '--delete', name])
+}
