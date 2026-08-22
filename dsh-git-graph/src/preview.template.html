@@ -82,6 +82,8 @@
     .modal-input .input { width: 100%; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
     .btn.danger { background: #b62324; border-color: transparent; color: #fff; }
+    .btn.success { background: #3fb950; border-color: transparent; color: #fff; }
+    .btn.success:hover { background: #4cc65f; }
     .toast { position: fixed; bottom: 24px; right: 24px; z-index: 103; padding: 10px 16px; border-radius: 8px; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,.5); display: none; }
     .toast.ok { background: rgba(63,185,80,.2); color: #3fb950; border: 1px solid rgba(63,185,80,.3); }
     .toast.err { background: rgba(248,81,73,.2); color: #f85149; border: 1px solid rgba(248,81,73,.3); }
@@ -108,6 +110,9 @@
         <option value="1000">最近 1000</option>
         <option value="2000">最近 2000</option>
       </select>
+      <button class="btn success icon" onclick="mockPush()" title="Push（预览演示）" aria-label="Push">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+      </button>
       <button class="btn primary icon" onclick="render()" title="刷新" aria-label="刷新">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M7.92136 0.349152C10.3744 0.349234 12.5564 1.5052 13.9557 3.29894L15.1281 2.12759C15.3303 1.92546 15.6767 2.06943 15.6767 2.35538V5.53923C15.6766 5.71626 15.5329 5.85976 15.3559 5.86002H12.171C11.8854 5.8597 11.7426 5.51465 11.9443 5.31249L12.9641 4.29056C11.8237 2.74305 9.98908 1.74106 7.92136 1.74097C4.46436 1.74097 1.66233 4.543 1.66233 8C1.66233 11.457 4.46436 14.259 7.92136 14.259C11.3782 14.2589 14.1804 11.4569 14.1804 8H15.5722C15.5722 12.2251 12.1465 15.6507 7.92136 15.6508C3.69614 15.6508 0.270508 12.2252 0.270508 8C0.270508 3.77478 3.69614 0.349152 7.92136 0.349152Z"/></svg>
       </button>
@@ -369,6 +374,8 @@ index 1234567..89abcde 100644
     clearTimeout(toastTimer)
     toastTimer = setTimeout(() => { toastEl.style.display = 'none' }, 3200)
   }
+
+  function mockPush() { showToast('ok', 'Push 已模拟执行（预览页不操作真实 git）') }
 
   // ── 键盘导航 ────────────────────────────────────────────────────────────
   document.addEventListener('keydown', (e) => {
