@@ -281,10 +281,30 @@ function rowSlice(c, i, lanes, colorOf, maxCol) {
   return parts.join('')
 }
 
+/** Top-of-graph "uncommitted changes" row: a dashed node + dashed link down to the first commit. */
+function dirtyRowHtml(maxCol, firstCol, dirtyCount) {
+  const w = (maxCol + 1) * COL_W + PAD_X * 2
+  const cx = PAD_X + firstCol * COL_W + COL_W / 2
+  const color = FALLBACK_COLOR
+  const svg =
+    `<svg class="gg-slice" width="${w}" height="${ROW_H}" viewBox="0 0 ${w} ${ROW_H}" style="position:static;width:${w}px;height:${ROW_H}px;display:block;flex:none;fill:none;stroke:none">` +
+    `<line x1="${cx}" y1="${ROW_H / 2}" x2="${cx}" y2="${ROW_H}" stroke="${color}" stroke-width="2" stroke-dasharray="3 3" stroke-linecap="round"/>` +
+    `<circle cx="${cx}" cy="${ROW_H / 2}" r="${NODE_R}" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="3 3"/>` +
+    `</svg>`
+  return (
+    `<div class="gg-row gg-row-dirty" style="height:${ROW_H}px">` +
+    svg +
+    `<span class="gg-subject">未提交的更改</span>` +
+    `<span class="gg-meta">${dirtyCount} 个文件</span>` +
+    `</div>`
+  )
+}
+
 /** Full graph markup: one `.gg-row` per commit, each embedding its graph slice + text. */
-function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
+function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
   const lanes = computeLanes(rows, rowOf, colorOf)
-  return rows.map((c, i) => {
+  const head = dirty > 0 && rows.length > 0 ? dirtyRowHtml(maxCol, rows[0].col, dirty) : ''
+  return head + rows.map((c, i) => {
     const refs = refsHtml(c.refs)
     const meta = [c.short ?? c.hash, c.author, relTime(c.date)].filter(Boolean).join(' · ')
     const sel = c.hash === selectedHash ? ' sel' : ''
@@ -329,6 +349,8 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
       '.gg-row{display:flex;align-items:center;gap:6px;padding:0 10px 0 4px;cursor:pointer;white-space:nowrap;box-sizing:border-box;border-left:2px solid transparent;flex:none}',
       '.gg-row:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary,#e6e6e6) 5%,transparent)}',
       '.gg-row.sel{background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#4c8dff) 14%,transparent);border-left-color:var(--dsw-alias-state-business-primary,#4c8dff)}',
+      '.gg-row-dirty{cursor:default}',
+      '.gg-row-dirty .gg-subject{color:var(--dsw-alias-label-tertiary,#8b94a7);font-style:italic}',
       '.gg-hash{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b94a7)}',
       '.gg-subject{overflow:hidden;text-overflow:ellipsis;color:var(--dsw-alias-label-primary,#e6e6e6)}',
       '.gg-meta{font-size:11px;color:var(--dsw-alias-label-tertiary,#8b94a7);flex:none}',
@@ -468,7 +490,7 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
 
       const onRowClick = (e) => {
         const row = e.target.closest('.gg-row')
-        if (row) openCommit(row.dataset.hash)
+        if (row && row.dataset.hash) openCommit(row.dataset.hash)
       }
 
       // ── 写操作：执行 + 右键菜单 + 确认弹窗 ───────────────────────────────
@@ -661,8 +683,9 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
       const graphMarkup = useMemo(() => {
         if (filteredCommits.length === 0) return ''
         const colorOf = branchColors(layoutData.rows)
-        return graphHtml(layoutData.rows, layoutData.maxCol, layoutData.rowOf, colorOf, selected)
-      }, [layoutData, filteredCommits, selected])
+        const dirtyCount = (query.trim() === '' && authorFilter === '') ? (state.data?.dirty ?? 0) : 0
+        return graphHtml(layoutData.rows, layoutData.maxCol, layoutData.rowOf, colorOf, selected, dirtyCount)
+      }, [layoutData, filteredCommits, selected, state.data, query, authorFilter])
 
       const onKeyDown = (e) => {
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {

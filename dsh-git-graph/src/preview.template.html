@@ -35,6 +35,8 @@
     .gg-row { display: flex; align-items: center; gap: 6px; padding: 0 12px 0 6px; cursor: pointer; white-space: nowrap; box-sizing: border-box; border-left: 2px solid transparent; }
     .gg-row:hover { background: rgba(255,255,255,.05); }
     .gg-row.sel { background: rgba(76,141,255,.14); border-left-color: #4c8dff; }
+    .gg-row-dirty { cursor: default; }
+    .gg-row-dirty .gg-subject { color: #8b94a7; font-style: italic; }
     .gg-subject { overflow: hidden; text-overflow: ellipsis; color: #e6e6e6; }
     .gg-meta { font-size: 11px; color: #8b94a7; flex: none; }
     .gg-ref { display: inline-block; font-size: 10px; line-height: 16px; padding: 0 6px; border-radius: 8px; margin-right: 4px; font-weight: 600; vertical-align: middle; }
@@ -284,9 +286,10 @@ index 1234567..89abcde 100644
     }
     const { rows, maxCol, rowOf } = layout(commits)
     const colorOf = branchColors(rows)
-    graphEl.innerHTML = graphHtml(rows, maxCol, rowOf, colorOf, selectedHash)
+    // 模拟 3 个未提交文件，演示顶部虚线「未提交更改」节点
+    graphEl.innerHTML = graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, 3)
     countLineEl.textContent = commits.length === total ? `${total} commits` : `匹配 ${commits.length} / ${total} commits`
-    graphEl.querySelectorAll('.gg-row').forEach(el => {
+    graphEl.querySelectorAll('.gg-row[data-hash]').forEach(el => {
       el.addEventListener('click', () => selectCommit(el.dataset.hash))
       el.addEventListener('contextmenu', onRowContextMenu)
     })

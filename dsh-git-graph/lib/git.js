@@ -149,7 +149,13 @@ export async function getGraph(cwd, maxCount = 300) {
     })
   }
   const refs = await getRefs(root).catch(() => [])
-  return { isRepo: true, root, branch, commits, refs }
+  // 未提交变更数（工作区 + 暂存区），供客户端在 DAG 顶部渲染虚线「未提交更改」节点。
+  let dirty = 0
+  try {
+    const st = await runGit(root, ['status', '--porcelain'])
+    dirty = st.split('\n').filter(l => l.trim() !== '').length
+  } catch { /* ignore */ }
+  return { isRepo: true, root, branch, commits, refs, dirty }
 }
 
 /**

@@ -50,6 +50,8 @@ window.__ModuleLoader__.load({
       '.gg-row{display:flex;align-items:center;gap:6px;padding:0 10px 0 4px;cursor:pointer;white-space:nowrap;box-sizing:border-box;border-left:2px solid transparent;flex:none}',
       '.gg-row:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary,#e6e6e6) 5%,transparent)}',
       '.gg-row.sel{background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#4c8dff) 14%,transparent);border-left-color:var(--dsw-alias-state-business-primary,#4c8dff)}',
+      '.gg-row-dirty{cursor:default}',
+      '.gg-row-dirty .gg-subject{color:var(--dsw-alias-label-tertiary,#8b94a7);font-style:italic}',
       '.gg-hash{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b94a7)}',
       '.gg-subject{overflow:hidden;text-overflow:ellipsis;color:var(--dsw-alias-label-primary,#e6e6e6)}',
       '.gg-meta{font-size:11px;color:var(--dsw-alias-label-tertiary,#8b94a7);flex:none}',
@@ -189,7 +191,7 @@ window.__ModuleLoader__.load({
 
       const onRowClick = (e) => {
         const row = e.target.closest('.gg-row')
-        if (row) openCommit(row.dataset.hash)
+        if (row && row.dataset.hash) openCommit(row.dataset.hash)
       }
 
       // ── 写操作：执行 + 右键菜单 + 确认弹窗 ───────────────────────────────
@@ -382,8 +384,9 @@ window.__ModuleLoader__.load({
       const graphMarkup = useMemo(() => {
         if (filteredCommits.length === 0) return ''
         const colorOf = branchColors(layoutData.rows)
-        return graphHtml(layoutData.rows, layoutData.maxCol, layoutData.rowOf, colorOf, selected)
-      }, [layoutData, filteredCommits, selected])
+        const dirtyCount = (query.trim() === '' && authorFilter === '') ? (state.data?.dirty ?? 0) : 0
+        return graphHtml(layoutData.rows, layoutData.maxCol, layoutData.rowOf, colorOf, selected, dirtyCount)
+      }, [layoutData, filteredCommits, selected, state.data, query, authorFilter])
 
       const onKeyDown = (e) => {
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
