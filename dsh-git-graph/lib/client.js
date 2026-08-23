@@ -526,7 +526,10 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
         es.onmessage = (e) => {
           try {
             const data = JSON.parse(e.data)
-            if (data.type === 'git-command') load(path)
+            if (data.type === 'git-command') {
+              setToast({ type: 'warn', text: '检测到 git 变更，正在刷新…' })
+              load(path)
+            }
           } catch { /* ignore */ }
         }
         return () => es.close()
