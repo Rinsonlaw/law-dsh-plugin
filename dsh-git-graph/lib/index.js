@@ -130,11 +130,10 @@ export function apply(ctx) {
   sessionCtx.on('session/event', (session, event) => {
     if (event?.type === 'tool/call' && event.data?.name === 'bash') {
       let command = ''
-      try {
-        const parsed = JSON.parse(event.data.arguments || '{}')
-        command = parsed.command || ''
-      } catch { /* arguments 可能不是 JSON */ }
-      if (/^\s*git\b/.test(command)) pendingGitCalls.add(event.data.callId)
+      try { command = JSON.parse(event.data.arguments || '{}').command || '' } catch { /* ignore */ }
+      const isGitMutation = /\bgit\b/.test(command) &&
+        /\b(commit|checkout|switch|merge|push|pull|fetch|branch|tag|reset|revert|cherry-pick|rebase|stash|add|rm|mv|restore|apply|clean)\b/.test(command)
+      if (isGitMutation) pendingGitCalls.add(event.data.callId)
     } else if (event?.type === 'tool/result') {
       const callId = event.data?.message?.source?.callId
       if (callId && pendingGitCalls.delete(callId)) {
