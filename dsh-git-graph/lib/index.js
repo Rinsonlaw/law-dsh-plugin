@@ -111,9 +111,10 @@ async function readJsonBody(req) {
 
 /** Resolve the repository working directory for a request. */
 function sessionCwd(ctx, sessionId, clientCwd) {
+  // 前端明确传入的路径（含用户通过目录选择器选中的路径）优先，其次才是 session 固定目录。
+  if (typeof clientCwd === 'string' && clientCwd !== '') return clientCwd
   const headerCwd = ctx.sessions?.get?.(sessionId)?.header?.cwd
   if (typeof headerCwd === 'string' && headerCwd !== '') return headerCwd
-  if (typeof clientCwd === 'string' && clientCwd !== '') return clientCwd
   return process.cwd()
 }
 
