@@ -125,9 +125,7 @@ export function apply(ctx) {
   const pendingGitCalls = new Set()
   const sseData = frame => `data: ${JSON.stringify(frame)}\n\n`
 
-  ctx.on('internal/dispatch', (_mode, eventName, args) => {
-    if (eventName !== 'session/event') return
-    const [, event] = args
+  ctx.on('session/event', (session, event) => {
     if (event?.type === 'tool/call' && event.data?.name === 'bash') {
       let command = ''
       try {
