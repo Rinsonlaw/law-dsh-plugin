@@ -403,7 +403,8 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
       // footer toggle button
       '.gg-toggle{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;flex:none;border-radius:8px;border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.1));background:transparent;color:var(--dsw-alias-label-secondary,#c9d1d9);cursor:pointer}',
       '.gg-toggle:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary,#e6e6e6) 8%,transparent);color:var(--dsw-alias-label-primary,#e6e6e6)}',
-      '.gg-toggle-rail{width:36px;height:36px;margin-top:6px}',
+      '.gg-toggle-rail{width:36px;height:36px}',
+      '.hHd-Xa_collapsed .hHd-Xa_footerActions:has(.gg-toggle){flex-direction:column;gap:6px;align-items:center}',
       // floating overlay
       '.gg-overlay{position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.5);display:flex;align-items:stretch;justify-content:flex-end}',
       '.gg-overlay-panel{width:min(920px,94vw);height:100%;background:var(--dsw-alias-bg-base,#0f1115);box-shadow:-20px 0 60px rgba(0,0,0,.5);display:flex;flex-direction:column}',
