@@ -16,7 +16,8 @@ window.__ModuleLoader__.load({
 
     const React = require('react')
     const { createElement: h, useState, useEffect, useCallback, useRef, useMemo, Fragment } = React
-    const { IconBranchOutline16, IconRefreshOutline16, Tooltip } = require('@deepseek-ai/dsh-client-ui-primitives')
+    const { IconBranchOutline16, IconRefreshOutline16, IconSendOutline14, Tooltip } = require('@deepseek-ai/dsh-client-ui-primitives')
+    const ReactDOM = require('react-dom')
 
     // Pure, framework-agnostic graph rendering for dsh-git-graph.
 //
@@ -125,18 +126,29 @@ function fmtDate(iso) {
 
 function refsHtml(refs) {
   if (!Array.isArray(refs) || refs.length === 0) return ''
-  return refs.map(r => {
-    if (r === 'HEAD') return '<span class="gg-ref gg-ref-head">HEAD</span>'
-    if (r.startsWith('HEAD ->')) {
+  // 远端分支识别（与 branchNames 一致，避免把 feature/x 误判为远端）
+  const isRemote = r => /^(origin|upstream|github)\//.test(r)
+  // 排序优先级：HEAD → 当前分支 → 本地分支 → 远端分支 → tag（同优先级保持原始顺序）
+  const rank = { head: 0, current: 1, branch: 2, remote: 3, tag: 4 }
+  const pills = []
+  for (const r of refs) {
+    if (r === 'HEAD') {
+      pills.push({ rank: rank.head, html: '<span class="gg-ref gg-ref-head" data-kind="head">HEAD</span>' })
+    } else if (r.startsWith('HEAD ->')) {
       const branch = r.slice('HEAD ->'.length).trim()
-      const head = '<span class="gg-ref gg-ref-head">HEAD</span>'
-      const b = branch ? `<span class="gg-ref gg-ref-branch">${esc(branch)}</span>` : ''
-      return head + b
+      pills.push({ rank: rank.head, html: '<span class="gg-ref gg-ref-head" data-kind="head">HEAD</span>' })
+      if (branch) pills.push({ rank: rank.current, html: `<span class="gg-ref gg-ref-current" data-kind="branch" data-ref="${esc(branch)}">${esc(branch)}</span>` })
+    } else if (r.startsWith('tag: ')) {
+      const name = r.slice(5)
+      pills.push({ rank: rank.tag, html: `<span class="gg-ref gg-ref-tag" data-kind="tag" data-ref="${esc(name)}">${esc(name)}</span>` })
+    } else if (isRemote(r)) {
+      pills.push({ rank: rank.remote, html: `<span class="gg-ref gg-ref-remote" data-kind="remote" data-ref="${esc(r)}">${esc(r)}</span>` })
+    } else {
+      pills.push({ rank: rank.branch, html: `<span class="gg-ref gg-ref-branch" data-kind="branch" data-ref="${esc(r)}">${esc(r)}</span>` })
     }
-    if (r.startsWith('tag: ')) return `<span class="gg-ref gg-ref-tag">${esc(r.slice(5))}</span>`
-    if (r.includes('/')) return `<span class="gg-ref gg-ref-remote">${esc(r)}</span>`
-    return `<span class="gg-ref gg-ref-branch">${esc(r)}</span>`
-  }).join('')
+  }
+  pills.sort((a, b) => a.rank - b.rank)
+  return pills.map(p => p.html).join('')
 }
 
 /** Highlight `backtick-quoted` spans in free text (returns escaped HTML). */
@@ -262,10 +274,13 @@ function elbowSlice(x1, x2, color, up) {
 }
 
 /** The graph slice (lane lines + node + elbows) for one commit row. */
-function rowSlice(c, i, lanes, colorOf, maxCol) {
+function rowSlice(c, i, lanes, colorOf, maxCol, dirtyLink = null) {
   const w = (maxCol + 1) * COL_W + PAD_X * 2
   const cx = col => PAD_X + col * COL_W + COL_W / 2
   const parts = [`<svg class="gg-slice" width="${w}" height="${ROW_H}" viewBox="0 0 ${w} ${ROW_H}" style="position:static;width:${w}px;height:${ROW_H}px;display:block;flex:none;fill:none;stroke:none">`]
+  if (dirtyLink) {
+    parts.push(`<line x1="${cx(c.col)}" y1="0" x2="${cx(c.col)}" y2="${ROW_H / 2}" stroke="${dirtyLink}" stroke-width="2" stroke-dasharray="4 3" stroke-linecap="round" opacity="0.5"/>`)
+  }
   for (let col = 0; col <= maxCol; col++) {
     const tc = lanes.top[i].get(col)
     const bc = lanes.bottom[i].get(col)
@@ -280,16 +295,38 @@ function rowSlice(c, i, lanes, colorOf, maxCol) {
   return parts.join('')
 }
 
+/** Top-of-graph "uncommitted changes" row: a dashed node + dashed link down to the first commit. */
+function dirtyRowHtml(maxCol, firstCol, dirtyCount, color, selected) {
+  const w = (maxCol + 1) * COL_W + PAD_X * 2
+  const cx = PAD_X + firstCol * COL_W + COL_W / 2
+  const svg =
+    `<svg class="gg-slice" width="${w}" height="${ROW_H}" viewBox="0 0 ${w} ${ROW_H}" style="position:static;width:${w}px;height:${ROW_H}px;display:block;flex:none;fill:none;stroke:none">` +
+    `<line x1="${cx}" y1="${ROW_H / 2}" x2="${cx}" y2="${ROW_H}" stroke="${color}" stroke-width="2" stroke-dasharray="4 3" stroke-linecap="round" opacity="0.5"/>` +
+    `<circle cx="${cx}" cy="${ROW_H / 2}" r="${NODE_R}" fill="${color}" opacity="0.5"/>` +
+    `</svg>`
+  const sel = selected === '__uncommitted__' ? ' sel' : ''
+  return (
+    `<div class="gg-row gg-row-dirty${sel}" data-hash="__uncommitted__" style="height:${ROW_H}px">` +
+    svg +
+    `<span class="gg-subject">未提交的更改</span>` +
+    `<span class="gg-meta">${dirtyCount} 个文件</span>` +
+    `</div>`
+  )
+}
+
 /** Full graph markup: one `.gg-row` per commit, each embedding its graph slice + text. */
-function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
+function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
   const lanes = computeLanes(rows, rowOf, colorOf)
-  return rows.map((c, i) => {
+  const dirtyColor = dirty > 0 && rows.length > 0 ? (colorOf.get(rows[0].hash) ?? FALLBACK_COLOR) : null
+  const head = dirtyColor ? dirtyRowHtml(maxCol, rows[0].col, dirty, dirtyColor, selectedHash) : ''
+  return head + rows.map((c, i) => {
     const refs = refsHtml(c.refs)
     const meta = [c.short ?? c.hash, c.author, relTime(c.date)].filter(Boolean).join(' · ')
     const sel = c.hash === selectedHash ? ' sel' : ''
+    const link = i === 0 && dirtyColor ? dirtyColor : null
     return (
       `<div class="gg-row${sel}" data-hash="${esc(c.hash)}" style="height:${ROW_H}px">` +
-      rowSlice(c, i, lanes, colorOf, maxCol) +
+      rowSlice(c, i, lanes, colorOf, maxCol, link) +
       refs +
       `<span class="gg-subject">${esc(c.subject || '(no subject)')}</span>` +
       `<span class="gg-meta">${esc(meta)}</span>` +
@@ -305,28 +342,39 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
       '.gg-panel{display:flex;flex-direction:column;height:100%;min-height:0;background:var(--dsw-alias-bg-base,#0f1115);color:var(--dsw-alias-label-primary,#e6e6e6);font-family:var(--dsh-font-ui,-apple-system,"PingFang SC","Segoe UI",sans-serif);font-size:13px}',
       '.gg-toolbar{display:flex;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.08));flex:none;flex-wrap:wrap}',
       '.gg-toolbar .gg-title{font-weight:600;margin-right:4px;display:flex;align-items:center;gap:6px}',
-      '.gg-input{font:inherit;font-size:12px;color:var(--dsw-alias-label-primary,#e6e6e6);background:var(--dsw-alias-bg-layer-1,#1a1d24);border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.1));border-radius:6px;padding:4px 8px;outline:none;min-width:0}',
+      '.gg-input{font:inherit;font-size:12px;color:var(--dsw-alias-label-primary,#e6e6e6);background:var(--dsw-alias-bg-layer-1,#1a1d24);border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.1));border-radius:6px;padding:4px 8px;outline:none;min-width:0;box-sizing:border-box;height:28px;line-height:18px}',
       '.gg-input:focus{border-color:var(--dsw-alias-state-business-primary,#4c8dff)}',
-      '.gg-input.gg-path{flex:1 1 220px}',
+      '.gg-input.gg-path{flex:1 1 160px;max-width:340px}',
       '.gg-input.gg-count{width:104px}',
+      '.gg-input.gg-search{width:170px}',
+      '.gg-input.gg-author{width:140px;max-width:160px}',
       '.gg-btn{font:inherit;font-size:12px;color:var(--dsw-alias-label-primary,#e6e6e6);background:var(--dsw-alias-button-elevated-fill,#262a33);border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.1));border-radius:6px;padding:4px 10px;cursor:pointer;white-space:nowrap}',
       '.gg-btn:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary,#e6e6e6) 8%,transparent)}',
       '.gg-btn.primary{background:var(--dsw-alias-state-business-primary,#4c8dff);border-color:transparent;color:#fff}',
+      '.gg-btn.primary:hover{background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#4c8dff) 78%,#fff);border-color:transparent}',
+      '.gg-btn.success{background:var(--dsw-alias-state-success-primary,#3fb950);border-color:transparent;color:#fff}',
+      '.gg-btn.success:hover{background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#3fb950) 78%,#fff);border-color:transparent}',
       '.gg-btn.gg-icon{padding:0;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;flex:none}',
       '.gg-body{flex:1;display:flex;min-height:0}',
-      '.gg-graph-col{flex:1;display:flex;min-width:0;min-height:0;overflow:auto;border-right:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.08))}',
+      '.gg-graph-col{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:auto;border-right:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.08))}',
       '.gg-detail{flex:1 1 40%;min-width:280px;max-width:46%;display:flex;flex-direction:column;min-height:0;overflow:auto;padding:12px 14px}',
       '.gg-graph-scroll{min-width:max-content}',
+      '.gg-count-line{flex:none;padding:4px 12px;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b94a7);border-bottom:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.06));position:sticky;top:0;background:var(--dsw-alias-bg-base,#0f1115);z-index:1}',
+      '.gg-count-line.pushing{color:var(--dsw-alias-state-business-primary,#4c8dff);font-weight:600}',
+      '.gg-btn:disabled{opacity:.5;cursor:default}',
       '.gg-slice{flex:none;display:block;position:static;width:auto;height:auto}',
       '.gg-panel svg,.gg-overlay svg,.gg-toggle svg{position:static;width:auto;height:auto;flex:none}',
       '.gg-row{display:flex;align-items:center;gap:6px;padding:0 10px 0 4px;cursor:pointer;white-space:nowrap;box-sizing:border-box;border-left:2px solid transparent;flex:none}',
       '.gg-row:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary,#e6e6e6) 5%,transparent)}',
       '.gg-row.sel{background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#4c8dff) 14%,transparent);border-left-color:var(--dsw-alias-state-business-primary,#4c8dff)}',
+      '.gg-row-dirty{cursor:default}',
+      '.gg-row-dirty .gg-subject{color:var(--dsw-alias-label-tertiary,#8b94a7);font-style:italic}',
       '.gg-hash{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b94a7)}',
       '.gg-subject{overflow:hidden;text-overflow:ellipsis;color:var(--dsw-alias-label-primary,#e6e6e6)}',
       '.gg-meta{font-size:11px;color:var(--dsw-alias-label-tertiary,#8b94a7);flex:none}',
       '.gg-ref{display:inline-block;font-size:10px;line-height:16px;padding:0 6px;border-radius:8px;margin-right:4px;font-weight:600;vertical-align:middle}',
       '.gg-ref-head{background:#e5484d;color:#fff}',
+      '.gg-ref-current{background:#8b5cf6;color:#fff}',
       '.gg-ref-branch{background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#3fb950) 22%,transparent);color:var(--dsw-alias-state-success-primary,#3fb950)}',
       '.gg-ref-tag{background:color-mix(in srgb,#e3b341 22%,transparent);color:#e3b341}',
       '.gg-ref-remote{background:color-mix(in srgb,#79b8ff 18%,transparent);color:#79b8ff}',
@@ -353,8 +401,10 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
       '.gg-diff .dl-ctx{color:var(--dsw-alias-label-secondary,#c9d1d9)}',
       '.gg-empty{color:var(--dsw-alias-label-tertiary,#8b94a7);padding:12px 2px}',
       // footer toggle button
-      '.gg-toggle{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.1));background:transparent;color:var(--dsw-alias-label-secondary,#c9d1d9);cursor:pointer}',
+      '.gg-toggle{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;flex:none;border-radius:8px;border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.1));background:transparent;color:var(--dsw-alias-label-secondary,#c9d1d9);cursor:pointer}',
       '.gg-toggle:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary,#e6e6e6) 8%,transparent);color:var(--dsw-alias-label-primary,#e6e6e6)}',
+      '.gg-toggle-rail{width:36px;height:36px}',
+      '.hHd-Xa_collapsed .hHd-Xa_footerActions:has(.gg-toggle){flex-direction:column;gap:6px;align-items:center}',
       // floating overlay
       '.gg-overlay{position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.5);display:flex;align-items:stretch;justify-content:flex-end}',
       '.gg-overlay-panel{width:min(920px,94vw);height:100%;background:var(--dsw-alias-bg-base,#0f1115);box-shadow:-20px 0 60px rgba(0,0,0,.5);display:flex;flex-direction:column}',
@@ -362,6 +412,28 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
       '.gg-overlay-head .gg-title{font-weight:600}',
       '.gg-close{margin-left:auto;font:inherit;font-size:16px;line-height:1;color:var(--dsw-alias-label-secondary,#c9d1d9);background:transparent;border:none;cursor:pointer;padding:4px 8px;border-radius:6px}',
       '.gg-close:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary,#e6e6e6) 8%,transparent)}',
+      // 写操作：右键菜单 / 确认弹窗 / toast
+      '.gg-btn.danger{background:#b62324;border-color:transparent;color:#fff}',
+      '.gg-btn.danger:hover{background:#d1242f}',
+      '.gg-menu-backdrop{position:fixed;inset:0;z-index:2147483500}',
+      '.gg-context-menu{position:fixed;z-index:2147483600;min-width:220px;max-width:320px;background:var(--dsw-alias-bg-layer-1,#1a1d24);border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.1));border-radius:8px;padding:4px;box-shadow:0 10px 30px rgba(0,0,0,.5)}',
+      '.gg-menu-item{display:block;width:100%;text-align:left;font:inherit;font-size:12px;color:var(--dsw-alias-label-primary,#e6e6e6);background:transparent;border:none;border-radius:5px;padding:6px 10px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.gg-menu-item:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary,#e6e6e6) 8%,transparent)}',
+      '.gg-menu-item.danger{color:var(--dsw-alias-state-error-primary,#f85149)}',
+      '.gg-menu-item.danger:hover{background:color-mix(in srgb,var(--dsw-alias-state-error-primary,#f85149) 12%,transparent)}',
+      '.gg-menu-sep{height:1px;margin:4px 6px;background:var(--dsw-alias-border-l1,rgba(255,255,255,.08))}',
+      '.gg-modal-backdrop{position:fixed;inset:0;z-index:2147483500;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center}',
+      '.gg-modal{width:min(440px,92vw);background:var(--dsw-alias-bg-base,#0f1115);border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.12));border-radius:12px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:10px}',
+      '.gg-modal-title{font-size:14px;font-weight:600}',
+      '.gg-modal-cmd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--dsw-alias-label-secondary,#c9d1d9);background:var(--dsw-alias-bg-layer-1,#1a1d24);border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.08));border-radius:6px;padding:6px 8px;word-break:break-all}',
+      '.gg-modal-note{font-size:12px;color:var(--dsw-alias-label-tertiary,#8b94a7)}',
+      '.gg-modal-input{width:100%}',
+      '.gg-modal-select{width:100%;cursor:pointer}',
+      '.gg-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:2px}',
+      '.gg-toast{position:fixed;bottom:24px;right:24px;z-index:2147483600;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.5)}',
+      '.gg-toast.ok{background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#3fb950) 20%,#0f1115);color:#3fb950;border:1px solid color-mix(in srgb,#3fb950 30%,transparent)}',
+      '.gg-toast.err{background:color-mix(in srgb,var(--dsw-alias-state-error-primary,#f85149) 20%,#0f1115);color:#f85149;border:1px solid color-mix(in srgb,#f85149 30%,transparent)}',
+      '.gg-toast.warn{background:color-mix(in srgb,#e3b341 20%,#0f1115);color:#e3b341;border:1px solid color-mix(in srgb,#e3b341 30%,transparent)}',
     ].join('\n')
 
     if (typeof document !== 'undefined' && !document.querySelector('style[data-plugin-css="dsh-git-graph"]')) {
@@ -394,9 +466,21 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
       const [maxCount, setMaxCount] = useState(300)
       const [selected, setSelected] = useState(null)
       const [detail, setDetail] = useState({ status: 'idle', data: null, error: null })
+      const [menu, setMenu] = useState(null)
+      const [modal, setModal] = useState(null)
+      const [toast, setToast] = useState(null)
+      const [query, setQuery] = useState('')
+      const [authorFilter, setAuthorFilter] = useState('')
+      const [pushing, setPushing] = useState(false)
       const scrollRef = useRef(null)
       const maxCountRef = useRef(maxCount)
       useEffect(() => { maxCountRef.current = maxCount }, [maxCount])
+
+      useEffect(() => {
+        if (!toast) return
+        const t = setTimeout(() => setToast(null), 4200)
+        return () => clearTimeout(t)
+      }, [toast])
 
       const load = useCallback(async (targetPath) => {
         setState(s => ({ ...s, status: 'loading', error: null }))
@@ -415,6 +499,18 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
         load(initialCwd)
       }, [load, initialCwd])
 
+      // 订阅 agent 执行的 git 命令完成事件，自动刷新
+      useEffect(() => {
+        const es = new EventSource('/gitgraph/events')
+        es.onmessage = (e) => {
+          try {
+            const data = JSON.parse(e.data)
+            if (data.type === 'git-command') load(path)
+          } catch { /* ignore */ }
+        }
+        return () => es.close()
+      }, [path, load])
+
       const openCommit = useCallback(async (hash) => {
         setSelected(hash)
         setDetail({ status: 'loading', data: null, error: null })
@@ -426,23 +522,288 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
         }
       }, [sessionId, path])
 
+      const openUncommitted = useCallback(async () => {
+        setSelected('__uncommitted__')
+        setDetail({ status: 'loading', data: null, error: null })
+        try {
+          const d = await api('uncommitted', { sessionId, cwd: path || undefined })
+          setDetail({ status: 'ready', data: d, error: null })
+        } catch (error) {
+          setDetail({ status: 'error', data: null, error: error?.message ?? String(error) })
+        }
+      }, [sessionId, path])
+
       const onRowClick = (e) => {
         const row = e.target.closest('.gg-row')
-        if (row) openCommit(row.dataset.hash)
+        const hash = row?.dataset.hash
+        if (!hash) return
+        if (hash === '__uncommitted__') openUncommitted()
+        else openCommit(hash)
       }
 
-      const layoutData = useMemo(() => {
-        const commits = state.data?.commits ?? []
-        return layout(commits)
+      // ── 写操作：执行 + 右键菜单 + 确认弹窗 ───────────────────────────────
+
+      const doMutation = useCallback(async (method, payload, label) => {
+        try {
+          const res = await api(method, { sessionId, cwd: path || undefined, ...payload })
+          if (res && res.conflict === true) {
+            setToast({ type: 'warn', text: `${label} 产生冲突，请手动解决后刷新` })
+          } else {
+            setToast({ type: 'ok', text: `${label} 成功` })
+          }
+          load(path)
+        } catch (error) {
+          setToast({ type: 'err', text: `${label} 失败：${error?.message ?? error}` })
+        }
+      }, [sessionId, path, load])
+
+      const doPush = useCallback(async () => {
+        if (pushing) return
+        setPushing(true)
+        try {
+          await api('push', { sessionId, cwd: path || undefined })
+          setToast({ type: 'ok', text: '推送成功' })
+          load(path)
+        } catch (error) {
+          setToast({ type: 'err', text: '推送失败：' + (error?.message ?? error) })
+        } finally {
+          setPushing(false)
+        }
+      }, [pushing, sessionId, path, load])
+
+      const copyHash = useCallback(async (hash) => {
+        try {
+          await navigator.clipboard.writeText(hash)
+          setToast({ type: 'ok', text: '已拷贝 commit hash' })
+        } catch {
+          setToast({ type: 'err', text: '拷贝失败' })
+        }
+      }, [])
+
+      const statusNote = async () => {
+        try {
+          const st = await api('status', { sessionId, cwd: path || undefined })
+          if (st && st.dirty > 0) return `⚠ 工作区有 ${st.dirty} 个未提交变更，此操作可能受影响。`
+        } catch { /* ignore */ }
+        return ''
+      }
+
+      const openModal = async (builder) => { setModal(builder(await statusNote())) }
+
+      const confirmCheckout = (ref, detach) => {
+        openModal(note => ({
+          title: detach ? '切换到提交（detached HEAD）' : `切换到分支 ${ref}`,
+          command: `git checkout${detach ? ' --detach' : ''} ${ref}`,
+          note, danger: false, inputs: [], confirmText: '切换',
+          onSubmit: () => doMutation('checkout', { ref, detach }, `切换到 ${ref}`),
+        }))
+      }
+
+      const promptCreateBranch = (hash) => {
+        setModal({
+          title: '新建分支', command: `git branch <name> ${hash.slice(0, 7)}`, note: '', danger: false,
+          inputs: [{ key: 'name', label: '分支名', placeholder: 'feature/xxx', initial: '' }], confirmText: '创建',
+          onSubmit: (values) => doMutation('createBranch', { name: values.name, from: hash }, `新建分支 ${values.name}`),
+        })
+      }
+
+      const promptCreateTag = (hash) => {
+        setModal({
+          title: '打 tag', command: `git tag <name> ${hash.slice(0, 7)}`, note: '', danger: false,
+          inputs: [{ key: 'name', label: 'Tag 名', placeholder: 'v1.0.0', initial: '' }], confirmText: '创建',
+          onSubmit: (values) => doMutation('createTag', { name: values.name, hash }, `打 tag ${values.name}`),
+        })
+      }
+
+      const promptRename = (name) => {
+        setModal({
+          title: `重命名分支 ${name}`, command: `git branch -m ${name} <new-name>`, note: '', danger: false,
+          inputs: [{ key: 'name', label: '新分支名', placeholder: 'feature/new-name', initial: '' }], confirmText: '重命名',
+          onSubmit: (values) => doMutation('renameBranch', { oldName: name, newName: values.name }, `重命名 ${name} → ${values.name}`),
+        })
+      }
+
+      const confirmDeleteBranch = (name) => {
+        setModal({
+          title: `删除本地分支 ${name}`, command: `git branch -d ${name}`,
+          note: '仅当分支已合并到上游时才删除。', danger: false, inputs: [], confirmText: '删除',
+          onSubmit: () => doMutation('deleteBranch', { name, force: false }, `删除分支 ${name}`),
+        })
+      }
+
+      const confirmDeleteRemote = (name) => {
+        setModal({
+          title: `删除远程分支 ${name}`, command: `git push origin --delete ${name}`,
+          note: '将从 origin 删除远程分支，此操作不可逆。', danger: true,
+          inputs: [{ key: 'confirm', label: `输入 ${name} 确认`, placeholder: name, initial: '' }], confirmText: '删除',
+          onSubmit: (values) => {
+            if (values.confirm !== name) { setToast({ type: 'err', text: '输入的分支名不匹配' }); throw new Error('mismatch') }
+            return doMutation('deleteRemoteBranch', { name }, `删除远程分支 ${name}`)
+          },
+        })
+      }
+
+      const confirmDeleteTag = (name) => {
+        setModal({
+          title: `删除 tag ${name}`, command: `git tag -d ${name}`, note: '', danger: false, inputs: [], confirmText: '删除',
+          onSubmit: () => doMutation('deleteTag', { name }, `删除 tag ${name}`),
+        })
+      }
+
+      const confirmMerge = (ref) => {
+        openModal(note => ({
+          title: `合并 ${ref} 到当前分支`, command: `git merge ${ref}`, note, danger: false, inputs: [], confirmText: '合并',
+          onSubmit: () => doMutation('merge', { ref }, `合并 ${ref}`),
+        }))
+      }
+
+      const confirmCherryPick = (hash) => {
+        openModal(note => ({
+          title: 'cherry-pick', command: `git cherry-pick ${hash.slice(0, 7)}`, note, danger: false, inputs: [], confirmText: 'cherry-pick',
+          onSubmit: () => doMutation('cherryPick', { hash }, `cherry-pick ${hash.slice(0, 7)}`),
+        }))
+      }
+
+      const confirmRevert = (hash) => {
+        openModal(note => ({
+          title: 'revert', command: `git revert --no-edit ${hash.slice(0, 7)}`, note, danger: false, inputs: [], confirmText: 'revert',
+          onSubmit: () => doMutation('revert', { hash }, `revert ${hash.slice(0, 7)}`),
+        }))
+      }
+
+      const confirmReset = (hash) => {
+        setModal({
+          title: `重置到此提交 ${hash.slice(0, 7)}`,
+          command: `git reset --<mode> ${hash.slice(0, 7)}`,
+          note: '选择重置模式：',
+          danger: false,
+          select: {
+            key: 'mode', initial: 'mixed',
+            options: [
+              { value: 'soft', label: 'soft — 仅移动分支指针，保留暂存区与工作区' },
+              { value: 'mixed', label: 'mixed — 保留工作区，重置暂存区（默认）' },
+              { value: 'hard', label: 'hard — 丢弃工作区与暂存区所有未提交变更（危险）' },
+            ],
+          },
+          confirmText: 'reset',
+          onSubmit: (values) => {
+            const mode = values.mode || 'mixed'
+            return doMutation('reset', { hash, mode }, `reset --${mode} ${hash.slice(0, 7)}`)
+          },
+        })
+      }
+
+      const onContextMenu = (e) => {
+        const rowEl = e.target.closest('.gg-row')
+        if (!rowEl) return
+        const hash = rowEl.dataset.hash
+        if (!hash) return
+        if (hash === '__uncommitted__') return
+        e.preventDefault()
+        const refEl = e.target.closest('.gg-ref')
+        const items = []
+        if (refEl && refEl.dataset.kind) {
+          const kind = refEl.dataset.kind
+          const name = refEl.dataset.ref || ''
+          if (kind === 'branch' && name) {
+            const isCurrent = refEl.classList.contains('gg-ref-current')
+            if (!isCurrent) {
+              items.push({ label: `切换到 ${name}`, danger: false, onClick: () => confirmCheckout(name, false) })
+              items.push({ label: `合并 ${name} 到当前分支`, danger: false, onClick: () => confirmMerge(name) })
+              items.push({ sep: true })
+            }
+            items.push({ label: `重命名 ${name}`, danger: false, onClick: () => promptRename(name) })
+            items.push({ label: `删除本地分支 ${name}`, danger: false, onClick: () => confirmDeleteBranch(name) })
+            items.push({ label: `删除远程分支 ${name}`, danger: true, onClick: () => confirmDeleteRemote(name) })
+          } else if (kind === 'remote' && name) {
+            const short = name.replace(/^(origin|upstream|github)\//, '')
+            const headHash = state.data?.commits?.find(c => c.refs?.some(r => r.startsWith('HEAD')))?.hash
+            if (hash !== headHash) {
+              items.push({ label: `合并 ${name} 到当前分支`, danger: false, onClick: () => confirmMerge(name) })
+            }
+            items.push({ label: `删除远程分支 ${short}`, danger: true, onClick: () => confirmDeleteRemote(short) })
+          } else if (kind === 'tag' && name) {
+            items.push({ label: `删除 tag ${name}`, danger: false, onClick: () => confirmDeleteTag(name) })
+          }
+        } else {
+          const headHash = state.data?.commits?.find(c => c.refs?.some(r => r.startsWith('HEAD')))?.hash
+          if (hash !== headHash) {
+            items.push({ label: '切换到此提交（detached）', danger: false, onClick: () => confirmCheckout(hash, true) })
+          }
+          items.push({ label: '拷贝 commit hash', danger: false, onClick: () => copyHash(hash) })
+          items.push({ label: '新建分支', danger: false, onClick: () => promptCreateBranch(hash) })
+          items.push({ label: '打 tag', danger: false, onClick: () => promptCreateTag(hash) })
+          items.push({ sep: true })
+          items.push({ label: '摘取提交到当前分支（cherry-pick）', danger: false, onClick: () => confirmCherryPick(hash) })
+          items.push({ label: '创建还原提交（revert）', danger: false, onClick: () => confirmRevert(hash) })
+          items.push({ label: '重置到此提交（reset）', danger: false, onClick: () => confirmReset(hash) })
+        }
+        if (items.length === 0) return
+        const x = Math.min(e.clientX, (typeof window !== 'undefined' ? window.innerWidth : 1000) - 260)
+        const y = Math.min(e.clientY, (typeof window !== 'undefined' ? window.innerHeight : 800) - items.length * 30 - 16)
+        setMenu({ x, y, items })
+      }
+
+      const authors = useMemo(() => {
+        const seen = new Map()
+        for (const c of state.data?.commits ?? []) {
+          if (c.author && !seen.has(c.author)) seen.set(c.author, c.author)
+        }
+        return [...seen.keys()].sort((a, b) => a.localeCompare(b))
       }, [state.data])
 
-      const graphMarkup = useMemo(() => {
-        if (!state.data || state.data.commits.length === 0) return ''
-        const colorOf = branchColors(layoutData.rows)
-        return graphHtml(layoutData.rows, layoutData.maxCol, layoutData.rowOf, colorOf, selected)
-      }, [layoutData, state.data, selected])
+      const filteredCommits = useMemo(() => {
+        const commits = state.data?.commits ?? []
+        const q = query.trim().toLowerCase()
+        return commits.filter(c => {
+          if (authorFilter && c.author !== authorFilter) return false
+          if (!q) return true
+          return (c.subject || '').toLowerCase().includes(q)
+            || (c.hash || '').toLowerCase().includes(q)
+            || (c.short || '').toLowerCase().includes(q)
+            || (c.author || '').toLowerCase().includes(q)
+            || (c.authorEmail || '').toLowerCase().includes(q)
+        })
+      }, [state.data, query, authorFilter])
 
-      return h('div', { className: 'gg-panel' },
+      const visibleHashes = useMemo(() => {
+        const hashes = filteredCommits.map(c => c.hash)
+        if ((state.data?.dirty ?? 0) > 0 && query.trim() === '' && authorFilter === '') {
+          hashes.unshift('__uncommitted__')
+        }
+        return hashes
+      }, [filteredCommits, state.data, query, authorFilter])
+
+      const layoutData = useMemo(() => layout(filteredCommits), [filteredCommits])
+
+      const graphMarkup = useMemo(() => {
+        if (filteredCommits.length === 0) return ''
+        const colorOf = branchColors(layoutData.rows)
+        const dirtyCount = (query.trim() === '' && authorFilter === '') ? (state.data?.dirty ?? 0) : 0
+        return graphHtml(layoutData.rows, layoutData.maxCol, layoutData.rowOf, colorOf, selected, dirtyCount)
+      }, [layoutData, filteredCommits, selected, state.data, query, authorFilter])
+
+      const onKeyDown = (e) => {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault()
+          if (visibleHashes.length === 0) return
+          const idx = selected ? visibleHashes.indexOf(selected) : -1
+          let next
+          if (idx === -1) next = e.key === 'ArrowDown' ? 0 : visibleHashes.length - 1
+          else if (e.key === 'ArrowDown') next = Math.min(idx + 1, visibleHashes.length - 1)
+          else next = Math.max(idx - 1, 0)
+          setSelected(visibleHashes[next])
+          setDetail({ status: 'idle', data: null, error: null })
+        } else if (e.key === 'Enter') {
+          if (selected === '__uncommitted__') openUncommitted()
+          else if (selected) openCommit(selected)
+        } else if (e.key === 'Escape') {
+          setSelected(null)
+          setDetail({ status: 'idle', data: null, error: null })
+        }
+      }
+
+      return h(Fragment, null, h('div', { className: 'gg-panel', tabIndex: 0, onKeyDown },
         h('div', { className: 'gg-toolbar' },
           h('span', { className: 'gg-title' },
             h(IconBranchOutline16, { size: 16 }),
@@ -452,6 +813,20 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
             className: 'gg-input gg-path', value: path, readOnly: true,
             spellCheck: false, placeholder: 'repository path', title: '仓库路径',
           }),
+          h('input', {
+            className: 'gg-input gg-search', value: query,
+            spellCheck: false, placeholder: '搜索提交 / hash / 作者', title: '搜索',
+            onChange: e => setQuery(e.target.value),
+          }),
+          h('select', {
+            className: 'gg-input gg-author',
+            value: authorFilter,
+            title: '按作者筛选',
+            onChange: e => setAuthorFilter(e.target.value),
+          },
+            h('option', { value: '' }, '全部作者'),
+            authors.map(a => h('option', { value: a, key: a }, a)),
+          ),
           h('select', {
             className: 'gg-input gg-count',
             value: maxCount,
@@ -465,6 +840,11 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
             h('option', { value: 1000 }, '最近 1000'),
             h('option', { value: 2000 }, '最近 2000'),
           ),
+          h(Tooltip, { label: pushing ? '推送中' : '推送', side: 'bottom', delayMs: 400 },
+            h('button', { className: 'gg-btn success gg-icon', 'aria-label': '推送', disabled: pushing, onClick: doPush },
+              h(IconSendOutline14, { size: 14 }),
+            ),
+          ),
           h(Tooltip, { label: '刷新', side: 'bottom', delayMs: 400 },
             h('button', { className: 'gg-btn primary gg-icon', 'aria-label': '刷新', onClick: () => load(path) },
               h(IconRefreshOutline16, { size: 16 }),
@@ -477,18 +857,43 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
             state.status === 'error' && h('div', { className: 'gg-status err' }, 'Error: ' + state.error),
             state.status === 'ready' && state.data && !state.data.isRepo && h('div', { className: 'gg-status' }, 'Not a git repository. Enter a repository path above.'),
             state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length === 0 && h('div', { className: 'gg-status' }, 'No commits yet.'),
+            state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length > 0 && h('div', { className: 'gg-count-line' + (pushing ? ' pushing' : '') },
+              pushing
+                ? '推送中…'
+                : (filteredCommits.length === state.data.commits.length
+                  ? `${state.data.commits.length} commits`
+                  : `匹配 ${filteredCommits.length} / ${state.data.commits.length} commits`),
+            ),
             state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length > 0 && h('div', {
               className: 'gg-graph-scroll',
               ref: scrollRef,
               onClick: onRowClick,
+              onContextMenu: onContextMenu,
               dangerouslySetInnerHTML: { __html: graphMarkup },
             }),
           ),
           h('div', { className: 'gg-detail' },
             selected === null && h('div', { className: 'gg-empty' }, 'Select a commit to see its message, changed files, and diff.'),
+            selected !== null && detail.status === 'idle' && h('div', { className: 'gg-empty' }, '按 Enter 查看此提交详情，↑/↓ 切换提交'),
             selected !== null && detail.status === 'loading' && h('div', { className: 'gg-status' }, 'Loading commit…'),
             selected !== null && detail.status === 'error' && h('div', { className: 'gg-status err' }, 'Error: ' + detail.error),
-            selected !== null && detail.status === 'ready' && detail.data && h(Fragment, null,
+            selected === '__uncommitted__' && detail.status === 'ready' && detail.data && h(Fragment, null,
+              h('h3', null, '未提交的更改'),
+              h('div', { className: 'gg-d-files' },
+                h('h4', null, `Changed files (${detail.data.files.length})`),
+                h('div', null, detail.data.files.map(f =>
+                  h('div', { className: 'gg-file', key: f.path },
+                    h('span', { className: 'st ' + f.status.charAt(0) }, f.status.charAt(0)),
+                    h('span', null, esc(f.path)),
+                  ),
+                )),
+              ),
+              h('div', { className: 'gg-d-diff' },
+                h('h4', null, 'Diff'),
+                detail.data.diff ? h('div', { className: 'gg-diff', dangerouslySetInnerHTML: { __html: diffHtml(detail.data.diff) } }) : h('div', { className: 'gg-empty' }, '无未提交的已跟踪文件改动。'),
+              ),
+            ),
+            selected !== null && selected !== '__uncommitted__' && detail.status === 'ready' && detail.data && h(Fragment, null,
               h('div', { dangerouslySetInnerHTML: { __html: '<h3>' + esc(detail.data.subject || '(no subject)') + '</h3>' } }),
               h('div', { className: 'gg-d-meta' },
                 h('span', null, esc(detail.data.short) + ' · ' + esc(detail.data.author)),
@@ -511,6 +916,76 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
                 detail.data.diff ? h('div', { className: 'gg-diff', dangerouslySetInnerHTML: { __html: diffHtml(detail.data.diff) } }) : h('div', { className: 'gg-empty' }, 'No diff available.'),
               ),
             ),
+          ),
+        ),
+      ),
+      ReactDOM.createPortal(
+        h(Fragment, null,
+          menu && h(Fragment, null,
+            h('div', { className: 'gg-menu-backdrop', onClick: () => setMenu(null) }),
+            h('div', { className: 'gg-context-menu', style: { left: menu.x, top: menu.y }, onClick: e => e.stopPropagation() },
+              menu.items.map((item, i) => item.sep
+                ? h('div', { className: 'gg-menu-sep', key: 'sep' + i })
+                : h('button', { className: 'gg-menu-item' + (item.danger ? ' danger' : ''), key: i, onClick: () => { const fn = item.onClick; setMenu(null); fn() } }, item.label),
+              ),
+            ),
+          ),
+          modal && h(ConfirmModal, { modal, onClose: () => setModal(null) }),
+          toast && h('div', { className: 'gg-toast ' + toast.type }, toast.text),
+        ),
+        document.body,
+      ),
+    )
+  }
+
+    // ── 确认弹窗 ────────────────────────────────────────────────────────────
+
+    function ConfirmModal({ modal, onClose }) {
+      const [values, setValues] = useState({})
+      const [busy, setBusy] = useState(false)
+      useEffect(() => {
+        const init = {}
+        const inputs = modal.inputs || []
+        inputs.forEach(i => { init[i.key] = i.initial || '' })
+        if (modal.select) init[modal.select.key] = modal.select.initial || ''
+        setValues(init)
+        setBusy(false)
+      }, [modal])
+      const set = (key, val) => setValues(v => ({ ...v, [key]: val }))
+      const submit = async () => {
+        if (busy) return
+        setBusy(true)
+        try {
+          await modal.onSubmit(values)
+          onClose()
+        } catch (e) {
+          // 校验不通过：留在弹窗让用户重试，错误已通过 toast 提示
+        } finally {
+          setBusy(false)
+        }
+      }
+      return h('div', { className: 'gg-modal-backdrop', onClick: onClose },
+        h('div', { className: 'gg-modal', onClick: e => e.stopPropagation() },
+          h('div', { className: 'gg-modal-title' }, modal.title),
+          modal.command ? h('div', { className: 'gg-modal-cmd' }, modal.command) : null,
+          modal.note ? h('div', { className: 'gg-modal-note' }, modal.note) : null,
+          (modal.inputs || []).map(inp =>
+            h('input', {
+              key: inp.key, className: 'gg-input gg-modal-input',
+              placeholder: inp.placeholder, value: values[inp.key] ?? '',
+              autoFocus: true, spellCheck: false,
+              onChange: e => set(inp.key, e.target.value),
+              onKeyDown: e => { if (e.key === 'Enter') submit() },
+            }),
+          ),
+          modal.select && h('select', {
+            className: 'gg-input gg-modal-select',
+            value: values[modal.select.key] ?? '',
+            onChange: e => set(modal.select.key, e.target.value),
+          }, modal.select.options.map(o => h('option', { value: o.value, key: o.value }, o.label))),
+          h('div', { className: 'gg-modal-actions' },
+            h('button', { className: 'gg-btn', onClick: onClose, disabled: busy }, '取消'),
+            h('button', { className: 'gg-btn primary' + (modal.danger ? ' danger' : ''), onClick: submit, disabled: busy }, busy ? '执行中…' : modal.confirmText),
           ),
         ),
       )
@@ -555,15 +1030,17 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
       if (overlayCleanup) overlayCleanup()
     }
 
-    function ToggleButton() {
+    function ToggleButton(props) {
+      const wide = props?.wide !== false
       const onClick = () => {
         if (overlayRoot) closeOverlay()
         else if (appCtx) openOverlay(appCtx)
       }
       return h(Tooltip, { label: 'Git Graph', side: 'right', delayMs: 400 },
         h('button', {
-          className: 'gg-toggle', 'aria-label': 'Git Graph', onClick,
-        }, h(IconBranchOutline16, { size: 16 })),
+          className: 'gg-toggle' + (wide ? '' : ' gg-toggle-rail'),
+          'aria-label': 'Git Graph', onClick,
+        }, h(IconBranchOutline16, { size: wide ? 16 : 18 })),
       )
     }
 

@@ -20,23 +20,28 @@
     .input { font: inherit; font-size: 12px; color: #e6e6e6; background: #1a1d24; border: 1px solid rgba(255,255,255,.1); border-radius: 6px; padding: 4px 8px; outline: none; }
     .input.path { flex: 1 1 220px; }
     .input.count { width: 104px; }
+    .input.search { width: 170px; }
+    .input.author { width: 140px; max-width: 160px; }
     .btn { font: inherit; font-size: 12px; color: #e6e6e6; background: #262a33; border: 1px solid rgba(255,255,255,.1); border-radius: 6px; padding: 4px 12px; cursor: pointer; white-space: nowrap; }
     .btn:hover { background: rgba(255,255,255,.06); }
     .btn.primary { background: #4c8dff; border-color: transparent; color: #fff; }
     .btn.icon { padding: 0; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
 
     .body { flex: 1; display: flex; min-height: 0; }
-    .graph-col { flex: 1; display: flex; min-width: 0; min-height: 0; overflow: auto; border-right: 1px solid rgba(255,255,255,.08); }
+    .graph-col { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: auto; border-right: 1px solid rgba(255,255,255,.08); }
     .graph-scroll { min-width: max-content; }
     .gg-slice { flex: none; display: block; }
 
     .gg-row { display: flex; align-items: center; gap: 6px; padding: 0 12px 0 6px; cursor: pointer; white-space: nowrap; box-sizing: border-box; border-left: 2px solid transparent; }
     .gg-row:hover { background: rgba(255,255,255,.05); }
     .gg-row.sel { background: rgba(76,141,255,.14); border-left-color: #4c8dff; }
+    .gg-row-dirty { cursor: default; }
+    .gg-row-dirty .gg-subject { color: #8b94a7; font-style: italic; }
     .gg-subject { overflow: hidden; text-overflow: ellipsis; color: #e6e6e6; }
     .gg-meta { font-size: 11px; color: #8b94a7; flex: none; }
     .gg-ref { display: inline-block; font-size: 10px; line-height: 16px; padding: 0 6px; border-radius: 8px; margin-right: 4px; font-weight: 600; vertical-align: middle; }
     .gg-ref-head { background: #e5484d; color: #fff; }
+    .gg-ref-current { background: #8b5cf6; color: #fff; }
     .gg-ref-branch { background: rgba(46,160,67,.25); color: #3fb950; }
     .gg-ref-tag { background: rgba(210,153,34,.22); color: #e3b341; }
     .gg-ref-remote { background: rgba(88,166,255,.18); color: #79b8ff; }
@@ -62,6 +67,31 @@
     .diff .dl-meta { color: #8b94a7; }
     .diff .dl-ctx { color: #c9d1d9; }
     .empty { color: #8b94a7; padding: 14px 4px; }
+
+    .count-line { flex: none; padding: 4px 12px; font-size: 11px; color: #8b94a7; border-bottom: 1px solid rgba(255,255,255,.06); position: sticky; top: 0; background: #0f1115; z-index: 1; }
+    .menu-backdrop { position: fixed; inset: 0; z-index: 100; display: none; }
+    .ctx-menu { position: fixed; z-index: 101; min-width: 220px; max-width: 320px; background: #1a1d24; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 4px; box-shadow: 0 10px 30px rgba(0,0,0,.5); display: none; }
+    .menu-item { display: block; width: 100%; text-align: left; font: inherit; font-size: 12px; color: #e6e6e6; background: transparent; border: none; border-radius: 5px; padding: 6px 10px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .menu-item:hover { background: rgba(255,255,255,.08); }
+    .menu-item.danger { color: #f85149; }
+    .menu-sep { height: 1px; margin: 4px 6px; background: rgba(255,255,255,.08); }
+    .modal-backdrop { position: fixed; inset: 0; z-index: 102; background: rgba(0,0,0,.5); display: none; align-items: center; justify-content: center; }
+    .modal { width: min(440px, 92vw); background: #0f1115; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.6); display: flex; flex-direction: column; gap: 10px; }
+    .modal-title { font-size: 14px; font-weight: 600; }
+    .modal-cmd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #c9d1d9; background: #1a1d24; border: 1px solid rgba(255,255,255,.08); border-radius: 6px; padding: 6px 8px; word-break: break-all; }
+    .modal-note { font-size: 12px; color: #8b94a7; }
+    .modal-input { display: none; }
+    .modal-input .input { width: 100%; }
+    .modal-select { display: none; }
+    .modal-select .input { width: 100%; cursor: pointer; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .btn.danger { background: #b62324; border-color: transparent; color: #fff; }
+    .btn.success { background: #3fb950; border-color: transparent; color: #fff; }
+    .btn.success:hover { background: #4cc65f; }
+    .toast { position: fixed; bottom: 24px; right: 24px; z-index: 103; padding: 10px 16px; border-radius: 8px; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,.5); display: none; }
+    .toast.ok { background: rgba(63,185,80,.2); color: #3fb950; border: 1px solid rgba(63,185,80,.3); }
+    .toast.err { background: rgba(248,81,73,.2); color: #f85149; border: 1px solid rgba(248,81,73,.3); }
+    .toast.warn { background: rgba(227,179,65,.2); color: #e3b341; border: 1px solid rgba(227,179,65,.3); }
   </style>
 </head>
 <body>
@@ -72,6 +102,10 @@
         Git Graph
       </span>
       <input class="input path" value="demo-repo（模拟数据）" spellcheck="false" readonly title="仓库路径" />
+      <input class="input search" id="searchInput" placeholder="搜索提交 / hash / 作者" spellcheck="false" title="搜索" oninput="onSearch(this.value)" />
+      <select class="input author" id="authorSel" title="按作者筛选" onchange="onAuthor(this.value)">
+        <option value="">全部作者</option>
+      </select>
       <select class="input count" id="countSel" title="提交数量上限" onchange="render()">
         <option value="0">全部</option>
         <option value="100">最近 100</option>
@@ -80,6 +114,9 @@
         <option value="1000">最近 1000</option>
         <option value="2000">最近 2000</option>
       </select>
+      <button class="btn success icon" onclick="mockPush()" title="Push（预览演示）" aria-label="Push">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M7.24707 1.01771C7.52897 1.07653 7.77619 1.19694 8.00391 1.38001C8.19202 1.53136 8.39884 1.73784 8.61914 1.95814L12.6396 5.9806L11.6299 6.99134L7.71484 3.0763V13.0001H6.28516V3.0763L2.36914 6.99134L1.35938 5.9806L5.38086 1.95814C5.60116 1.73784 5.80798 1.53136 5.99609 1.38001C6.19476 1.22027 6.4385 1.06739 6.75195 1.01771C6.91296 0.992304 7.07471 0.997504 7.24707 1.01771Z"/></svg>
+      </button>
       <button class="btn primary icon" onclick="render()" title="刷新" aria-label="刷新">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M7.92136 0.349152C10.3744 0.349234 12.5564 1.5052 13.9557 3.29894L15.1281 2.12759C15.3303 1.92546 15.6767 2.06943 15.6767 2.35538V5.53923C15.6766 5.71626 15.5329 5.85976 15.3559 5.86002H12.171C11.8854 5.8597 11.7426 5.51465 11.9443 5.31249L12.9641 4.29056C11.8237 2.74305 9.98908 1.74106 7.92136 1.74097C4.46436 1.74097 1.66233 4.543 1.66233 8C1.66233 11.457 4.46436 14.259 7.92136 14.259C11.3782 14.2589 14.1804 11.4569 14.1804 8H15.5722C15.5722 12.2251 12.1465 15.6507 7.92136 15.6508C3.69614 15.6508 0.270508 12.2252 0.270508 8C0.270508 3.77478 3.69614 0.349152 7.92136 0.349152Z"/></svg>
       </button>
@@ -87,6 +124,7 @@
     </div>
     <div class="body">
       <div class="graph-col">
+        <div class="count-line" id="countLine"></div>
         <div class="graph-scroll" id="graph"></div>
       </div>
       <div class="detail" id="detail">
@@ -94,6 +132,23 @@
       </div>
     </div>
   </div>
+
+  <div class="menu-backdrop" id="menuBackdrop" onclick="closeMenu()"></div>
+  <div class="ctx-menu" id="ctxMenu"></div>
+  <div class="modal-backdrop" id="modalBackdrop" onclick="closeModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-title" id="modalTitle"></div>
+      <div class="modal-cmd" id="modalCmd"></div>
+      <div class="modal-note" id="modalNote"></div>
+      <div class="modal-input" id="modalInputWrap"><input class="input" id="modalInput" placeholder="名称" /></div>
+      <div class="modal-select" id="modalSelectWrap"><select class="input" id="modalSelect"></select></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal()">取消</button>
+        <button class="btn primary" id="modalConfirm">确认</button>
+      </div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
 
   <script>
   // ── 模拟提交数据：git flow 常见分支（新 → 旧，topo 顺序） ──────────────────
@@ -223,18 +278,29 @@ function fmtDate(iso) {
 
 function refsHtml(refs) {
   if (!Array.isArray(refs) || refs.length === 0) return ''
-  return refs.map(r => {
-    if (r === 'HEAD') return '<span class="gg-ref gg-ref-head">HEAD</span>'
-    if (r.startsWith('HEAD ->')) {
+  // 远端分支识别（与 branchNames 一致，避免把 feature/x 误判为远端）
+  const isRemote = r => /^(origin|upstream|github)\//.test(r)
+  // 排序优先级：HEAD → 当前分支 → 本地分支 → 远端分支 → tag（同优先级保持原始顺序）
+  const rank = { head: 0, current: 1, branch: 2, remote: 3, tag: 4 }
+  const pills = []
+  for (const r of refs) {
+    if (r === 'HEAD') {
+      pills.push({ rank: rank.head, html: '<span class="gg-ref gg-ref-head" data-kind="head">HEAD</span>' })
+    } else if (r.startsWith('HEAD ->')) {
       const branch = r.slice('HEAD ->'.length).trim()
-      const head = '<span class="gg-ref gg-ref-head">HEAD</span>'
-      const b = branch ? `<span class="gg-ref gg-ref-branch">${esc(branch)}</span>` : ''
-      return head + b
+      pills.push({ rank: rank.head, html: '<span class="gg-ref gg-ref-head" data-kind="head">HEAD</span>' })
+      if (branch) pills.push({ rank: rank.current, html: `<span class="gg-ref gg-ref-current" data-kind="branch" data-ref="${esc(branch)}">${esc(branch)}</span>` })
+    } else if (r.startsWith('tag: ')) {
+      const name = r.slice(5)
+      pills.push({ rank: rank.tag, html: `<span class="gg-ref gg-ref-tag" data-kind="tag" data-ref="${esc(name)}">${esc(name)}</span>` })
+    } else if (isRemote(r)) {
+      pills.push({ rank: rank.remote, html: `<span class="gg-ref gg-ref-remote" data-kind="remote" data-ref="${esc(r)}">${esc(r)}</span>` })
+    } else {
+      pills.push({ rank: rank.branch, html: `<span class="gg-ref gg-ref-branch" data-kind="branch" data-ref="${esc(r)}">${esc(r)}</span>` })
     }
-    if (r.startsWith('tag: ')) return `<span class="gg-ref gg-ref-tag">${esc(r.slice(5))}</span>`
-    if (r.includes('/')) return `<span class="gg-ref gg-ref-remote">${esc(r)}</span>`
-    return `<span class="gg-ref gg-ref-branch">${esc(r)}</span>`
-  }).join('')
+  }
+  pills.sort((a, b) => a.rank - b.rank)
+  return pills.map(p => p.html).join('')
 }
 
 /** Highlight `backtick-quoted` spans in free text (returns escaped HTML). */
@@ -360,10 +426,13 @@ function elbowSlice(x1, x2, color, up) {
 }
 
 /** The graph slice (lane lines + node + elbows) for one commit row. */
-function rowSlice(c, i, lanes, colorOf, maxCol) {
+function rowSlice(c, i, lanes, colorOf, maxCol, dirtyLink = null) {
   const w = (maxCol + 1) * COL_W + PAD_X * 2
   const cx = col => PAD_X + col * COL_W + COL_W / 2
   const parts = [`<svg class="gg-slice" width="${w}" height="${ROW_H}" viewBox="0 0 ${w} ${ROW_H}" style="position:static;width:${w}px;height:${ROW_H}px;display:block;flex:none;fill:none;stroke:none">`]
+  if (dirtyLink) {
+    parts.push(`<line x1="${cx(c.col)}" y1="0" x2="${cx(c.col)}" y2="${ROW_H / 2}" stroke="${dirtyLink}" stroke-width="2" stroke-dasharray="4 3" stroke-linecap="round" opacity="0.5"/>`)
+  }
   for (let col = 0; col <= maxCol; col++) {
     const tc = lanes.top[i].get(col)
     const bc = lanes.bottom[i].get(col)
@@ -378,16 +447,38 @@ function rowSlice(c, i, lanes, colorOf, maxCol) {
   return parts.join('')
 }
 
+/** Top-of-graph "uncommitted changes" row: a dashed node + dashed link down to the first commit. */
+function dirtyRowHtml(maxCol, firstCol, dirtyCount, color, selected) {
+  const w = (maxCol + 1) * COL_W + PAD_X * 2
+  const cx = PAD_X + firstCol * COL_W + COL_W / 2
+  const svg =
+    `<svg class="gg-slice" width="${w}" height="${ROW_H}" viewBox="0 0 ${w} ${ROW_H}" style="position:static;width:${w}px;height:${ROW_H}px;display:block;flex:none;fill:none;stroke:none">` +
+    `<line x1="${cx}" y1="${ROW_H / 2}" x2="${cx}" y2="${ROW_H}" stroke="${color}" stroke-width="2" stroke-dasharray="4 3" stroke-linecap="round" opacity="0.5"/>` +
+    `<circle cx="${cx}" cy="${ROW_H / 2}" r="${NODE_R}" fill="${color}" opacity="0.5"/>` +
+    `</svg>`
+  const sel = selected === '__uncommitted__' ? ' sel' : ''
+  return (
+    `<div class="gg-row gg-row-dirty${sel}" data-hash="__uncommitted__" style="height:${ROW_H}px">` +
+    svg +
+    `<span class="gg-subject">未提交的更改</span>` +
+    `<span class="gg-meta">${dirtyCount} 个文件</span>` +
+    `</div>`
+  )
+}
+
 /** Full graph markup: one `.gg-row` per commit, each embedding its graph slice + text. */
-function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
+function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
   const lanes = computeLanes(rows, rowOf, colorOf)
-  return rows.map((c, i) => {
+  const dirtyColor = dirty > 0 && rows.length > 0 ? (colorOf.get(rows[0].hash) ?? FALLBACK_COLOR) : null
+  const head = dirtyColor ? dirtyRowHtml(maxCol, rows[0].col, dirty, dirtyColor, selectedHash) : ''
+  return head + rows.map((c, i) => {
     const refs = refsHtml(c.refs)
     const meta = [c.short ?? c.hash, c.author, relTime(c.date)].filter(Boolean).join(' · ')
     const sel = c.hash === selectedHash ? ' sel' : ''
+    const link = i === 0 && dirtyColor ? dirtyColor : null
     return (
       `<div class="gg-row${sel}" data-hash="${esc(c.hash)}" style="height:${ROW_H}px">` +
-      rowSlice(c, i, lanes, colorOf, maxCol) +
+      rowSlice(c, i, lanes, colorOf, maxCol, link) +
       refs +
       `<span class="gg-subject">${esc(c.subject || '(no subject)')}</span>` +
       `<span class="gg-meta">${esc(meta)}</span>` +
@@ -431,7 +522,84 @@ index 1234567..89abcde 100644
   // ── 渲染 ─────────────────────────────────────────────────────────────────
   const graphEl = document.getElementById('graph')
   const detailEl = document.getElementById('detail')
+  const countLineEl = document.getElementById('countLine')
+  const searchInput = document.getElementById('searchInput')
+  const authorSel = document.getElementById('authorSel')
+  const menuBackdrop = document.getElementById('menuBackdrop')
+  const menuEl = document.getElementById('ctxMenu')
+  const modalBackdrop = document.getElementById('modalBackdrop')
+  const modalTitle = document.getElementById('modalTitle')
+  const modalCmd = document.getElementById('modalCmd')
+  const modalNote = document.getElementById('modalNote')
+  const modalInputWrap = document.getElementById('modalInputWrap')
+  const modalInput = document.getElementById('modalInput')
+  const modalSelectWrap = document.getElementById('modalSelectWrap')
+  const modalSelect = document.getElementById('modalSelect')
+  const modalConfirm = document.getElementById('modalConfirm')
+  const toastEl = document.getElementById('toast')
+
   let selectedHash = null
+  let query = ''
+  let authorFilter = ''
+  let pendingItem = null
+  let toastTimer = null
+
+  // 作者下拉填充
+  ;[...new Set(MOCK_COMMITS.map(c => c.author))].sort().forEach(a => {
+    const opt = document.createElement('option')
+    opt.value = a
+    opt.textContent = a
+    authorSel.appendChild(opt)
+  })
+
+  function baseCommits() {
+    const count = Number(document.getElementById('countSel').value) || 0
+    return count > 0 ? MOCK_COMMITS.slice(0, count) : MOCK_COMMITS
+  }
+
+  function filteredCommits() {
+    const q = query.trim().toLowerCase()
+    return baseCommits().filter(c => {
+      if (authorFilter && c.author !== authorFilter) return false
+      if (!q) return true
+      return (c.subject || '').toLowerCase().includes(q)
+        || (c.hash || '').toLowerCase().includes(q)
+        || (c.author || '').toLowerCase().includes(q)
+    })
+  }
+
+  function onSearch(v) { query = v; render() }
+  function onAuthor(v) { authorFilter = v; render() }
+
+  function selectCommit(hash) {
+    selectedHash = hash
+    graphEl.querySelectorAll('.gg-row').forEach(r => r.classList.toggle('sel', r.dataset.hash === hash))
+    if (hash === '__uncommitted__') { renderUncommitted(); return }
+    const c = MOCK_COMMITS.find(x => x.hash === hash)
+    if (c) renderDetail(c)
+  }
+
+  function renderUncommitted() {
+    const files = [
+      { status: 'M', path: 'src/render.js' },
+      { status: 'A', path: 'src/uncommitted.js' },
+    ]
+    const diff = `diff --git a/src/render.js b/src/render.js
+index 1234567..89abcde 100644
+--- a/src/render.js
++++ b/src/render.js
+@@ -1,6 +1,7 @@
+  import { mount } from './mount.js'
+-import { legacy } from './legacy.js'
++import { init } from './init.js'
+`
+    detailEl.innerHTML =
+      '<h3>未提交的更改</h3>' +
+      '<div class="d-files"><h4>Changed files (' + files.length + ')</h4>' +
+        files.map(f => '<div class="file"><span class="st ' + f.status + '">' + f.status + '</span><span>' + esc(f.path) + '</span></div>').join('') +
+      '</div>' +
+      '<div class="d-diff"><h4>Diff</h4><div class="diff">' + diffHtml(diff) + '</div></div>'
+  }
 
   function renderDetail(c) {
     const d = mockDetail(c)
@@ -451,24 +619,161 @@ index 1234567..89abcde 100644
   }
 
   function render() {
-    const count = Number(document.getElementById('countSel').value) || 0
-    const commits = count > 0 ? MOCK_COMMITS.slice(0, count) : MOCK_COMMITS
+    const commits = filteredCommits()
+    const total = baseCommits().length
+    if (commits.length === 0) {
+      graphEl.innerHTML = '<div class="empty">无匹配提交</div>'
+      countLineEl.textContent = `匹配 0 / ${total} commits`
+      detailEl.innerHTML = '<div class="empty">无匹配提交。</div>'
+      return
+    }
     const { rows, maxCol, rowOf } = layout(commits)
     const colorOf = branchColors(rows)
-    graphEl.innerHTML = graphHtml(rows, maxCol, rowOf, colorOf, selectedHash)
-    graphEl.querySelectorAll('.gg-row').forEach(el => {
-      el.addEventListener('click', () => {
-        selectedHash = el.dataset.hash
-        graphEl.querySelectorAll('.gg-row').forEach(r => r.classList.toggle('sel', r.dataset.hash === selectedHash))
-        const c = MOCK_COMMITS.find(x => x.hash === selectedHash)
-        if (c) renderDetail(c)
-      })
+    // 模拟 3 个未提交文件，演示顶部虚线「未提交更改」节点
+    graphEl.innerHTML = graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, 3)
+    countLineEl.textContent = commits.length === total ? `${total} commits` : `匹配 ${commits.length} / ${total} commits`
+    graphEl.querySelectorAll('.gg-row[data-hash]').forEach(el => {
+      el.addEventListener('click', () => selectCommit(el.dataset.hash))
+      el.addEventListener('contextmenu', onRowContextMenu)
     })
-    // 默认选中最新提交
-    const first = commits[0]
-    graphEl.querySelector(`.gg-row[data-hash="${first.hash}"]`)?.classList.add('sel')
-    renderDetail(first)
+    const target = selectedHash && commits.some(c => c.hash === selectedHash) ? selectedHash : commits[0].hash
+    selectedHash = target
+    graphEl.querySelector(`.gg-row[data-hash="${target}"]`)?.classList.add('sel')
+    const c = commits.find(x => x.hash === target)
+    if (c) renderDetail(c)
   }
+
+  // ── 右键菜单（mock） ────────────────────────────────────────────────────
+  function onRowContextMenu(e) {
+    e.preventDefault()
+    const rowEl = e.target.closest('.gg-row')
+    if (!rowEl) return
+    const hash = rowEl.dataset.hash
+    if (!hash || hash === '__uncommitted__') return
+    const refEl = e.target.closest('.gg-ref')
+    const items = []
+    if (refEl && refEl.dataset.kind) {
+      const kind = refEl.dataset.kind
+      const name = refEl.dataset.ref || ''
+      if (kind === 'branch' && name) {
+        const isCurrent = refEl.classList.contains('gg-ref-current')
+        if (!isCurrent) {
+          items.push({ label: `切换到 ${name}`, cmd: `git checkout ${name}` })
+          items.push({ label: `合并 ${name} 到当前分支`, cmd: `git merge ${name}` })
+          items.push({ sep: true })
+        }
+        items.push({ label: `重命名 ${name}`, cmd: `git branch -m ${name} <new-name>`, input: true })
+        items.push({ label: `删除本地分支 ${name}`, cmd: `git branch -d ${name}` })
+        items.push({ label: `删除远程分支 ${name}`, cmd: `git push origin --delete ${name}`, danger: true })
+      } else if (kind === 'remote' && name) {
+        const short = name.replace(/^(origin|upstream|github)\//, '')
+        const headHash = MOCK_COMMITS.find(c => c.refs.some(r => r.startsWith('HEAD')))?.hash
+        if (hash !== headHash) {
+          items.push({ label: `合并 ${name} 到当前分支`, cmd: `git merge ${name}` })
+        }
+        items.push({ label: `删除远程分支 ${short}`, cmd: `git push origin --delete ${short}`, danger: true })
+      } else if (kind === 'tag' && name) {
+        items.push({ label: `删除 tag ${name}`, cmd: `git tag -d ${name}` })
+      }
+    } else {
+      const headHash = MOCK_COMMITS.find(c => c.refs.some(r => r.startsWith('HEAD')))?.hash
+      if (hash !== headHash) {
+        items.push({ label: '切换到此提交（detached）', cmd: `git checkout --detach ${hash}` })
+      }
+      items.push({ label: '拷贝 commit hash', action: () => copyHash(hash) })
+      items.push({ label: '新建分支', cmd: `git branch <name> ${hash}`, input: true })
+      items.push({ label: '打 tag', cmd: `git tag <name> ${hash}`, input: true })
+      items.push({ sep: true })
+      items.push({ label: '摘取提交到当前分支（cherry-pick）', cmd: `git cherry-pick ${hash}` })
+      items.push({ label: '创建还原提交（revert）', cmd: `git revert --no-edit ${hash}` })
+      items.push({ label: '重置到此提交（reset）', cmd: `git reset --<mode> ${hash}`, select: { options: [
+        { value: 'soft', label: 'soft — 仅移动分支指针，保留暂存区与工作区' },
+        { value: 'mixed', label: 'mixed — 保留工作区，重置暂存区（默认）' },
+        { value: 'hard', label: 'hard — 丢弃工作区与暂存区所有未提交变更（危险）' },
+      ] } })
+    }
+    if (items.length === 0) return
+    menuEl.innerHTML = ''
+    items.forEach(item => {
+      if (item.sep) {
+        const sep = document.createElement('div')
+        sep.className = 'menu-sep'
+        menuEl.appendChild(sep)
+        return
+      }
+      const btn = document.createElement('button')
+      btn.className = 'menu-item' + (item.danger ? ' danger' : '')
+      btn.textContent = item.label
+      btn.onclick = () => { closeMenu(); if (item.action) item.action(); else openModal(item) }
+      menuEl.appendChild(btn)
+    })
+    menuEl.style.left = Math.min(e.clientX, window.innerWidth - 240) + 'px'
+    menuEl.style.top = Math.min(e.clientY, window.innerHeight - items.length * 30 - 16) + 'px'
+    menuEl.style.display = 'block'
+    menuBackdrop.style.display = 'block'
+  }
+
+  function closeMenu() { menuEl.style.display = 'none'; menuBackdrop.style.display = 'none' }
+
+  function copyHash(hash) {
+    navigator.clipboard.writeText(hash).then(
+      () => showToast('ok', '已拷贝 commit hash'),
+      () => showToast('err', '拷贝失败'),
+    )
+  }
+
+  function openModal(item) {
+    pendingItem = item
+    modalTitle.textContent = item.label
+    modalCmd.textContent = item.cmd
+    modalNote.textContent = item.danger ? '⚠ 高危操作（预览页为模拟演示，不会执行真实 git）' : '预览页为模拟演示，不会执行真实 git 操作。'
+    modalInputWrap.style.display = item.input ? 'block' : 'none'
+    if (item.input) { modalInput.value = ''; modalInput.focus() }
+    modalSelectWrap.style.display = item.select ? 'block' : 'none'
+    if (item.select) {
+      modalSelect.innerHTML = ''
+      item.select.options.forEach(o => {
+        const opt = document.createElement('option')
+        opt.value = o.value
+        opt.textContent = o.label
+        modalSelect.appendChild(opt)
+      })
+    }
+    modalConfirm.className = 'btn primary' + (item.danger ? ' danger' : '')
+    modalBackdrop.style.display = 'flex'
+  }
+
+  function closeModal() { modalBackdrop.style.display = 'none' }
+  modalConfirm.onclick = () => { closeModal(); showToast('ok', `「${pendingItem.label}」已模拟执行（预览页不操作真实 git）`) }
+  modalInput.onkeydown = e => { if (e.key === 'Enter') modalConfirm.click() }
+
+  function showToast(type, text) {
+    toastEl.className = 'toast ' + type
+    toastEl.textContent = text
+    toastEl.style.display = 'block'
+    clearTimeout(toastTimer)
+    toastTimer = setTimeout(() => { toastEl.style.display = 'none' }, 3200)
+  }
+
+  function mockPush() { showToast('ok', 'Push 已模拟执行（预览页不操作真实 git）') }
+
+  // ── 键盘导航 ────────────────────────────────────────────────────────────
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      const commits = filteredCommits()
+      const hashes = ['__uncommitted__', ...commits.map(c => c.hash)]
+      if (hashes.length === 0) return
+      e.preventDefault()
+      const idx = selectedHash ? hashes.indexOf(selectedHash) : -1
+      let next
+      if (idx === -1) next = e.key === 'ArrowDown' ? 0 : hashes.length - 1
+      else if (e.key === 'ArrowDown') next = Math.min(idx + 1, hashes.length - 1)
+      else next = Math.max(idx - 1, 0)
+      selectCommit(hashes[next])
+    } else if (e.key === 'Escape') {
+      closeMenu(); closeModal()
+    }
+  })
 
   render()
   </script>

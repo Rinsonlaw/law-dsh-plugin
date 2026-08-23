@@ -105,18 +105,29 @@ export function fmtDate(iso) {
 
 export function refsHtml(refs) {
   if (!Array.isArray(refs) || refs.length === 0) return ''
-  return refs.map(r => {
-    if (r === 'HEAD') return '<span class="gg-ref gg-ref-head">HEAD</span>'
-    if (r.startsWith('HEAD ->')) {
+  // 远端分支识别（与 branchNames 一致，避免把 feature/x 误判为远端）
+  const isRemote = r => /^(origin|upstream|github)\//.test(r)
+  // 排序优先级：HEAD → 当前分支 → 本地分支 → 远端分支 → tag（同优先级保持原始顺序）
+  const rank = { head: 0, current: 1, branch: 2, remote: 3, tag: 4 }
+  const pills = []
+  for (const r of refs) {
+    if (r === 'HEAD') {
+      pills.push({ rank: rank.head, html: '<span class="gg-ref gg-ref-head" data-kind="head">HEAD</span>' })
+    } else if (r.startsWith('HEAD ->')) {
       const branch = r.slice('HEAD ->'.length).trim()
-      const head = '<span class="gg-ref gg-ref-head">HEAD</span>'
-      const b = branch ? `<span class="gg-ref gg-ref-branch">${esc(branch)}</span>` : ''
-      return head + b
+      pills.push({ rank: rank.head, html: '<span class="gg-ref gg-ref-head" data-kind="head">HEAD</span>' })
+      if (branch) pills.push({ rank: rank.current, html: `<span class="gg-ref gg-ref-current" data-kind="branch" data-ref="${esc(branch)}">${esc(branch)}</span>` })
+    } else if (r.startsWith('tag: ')) {
+      const name = r.slice(5)
+      pills.push({ rank: rank.tag, html: `<span class="gg-ref gg-ref-tag" data-kind="tag" data-ref="${esc(name)}">${esc(name)}</span>` })
+    } else if (isRemote(r)) {
+      pills.push({ rank: rank.remote, html: `<span class="gg-ref gg-ref-remote" data-kind="remote" data-ref="${esc(r)}">${esc(r)}</span>` })
+    } else {
+      pills.push({ rank: rank.branch, html: `<span class="gg-ref gg-ref-branch" data-kind="branch" data-ref="${esc(r)}">${esc(r)}</span>` })
     }
-    if (r.startsWith('tag: ')) return `<span class="gg-ref gg-ref-tag">${esc(r.slice(5))}</span>`
-    if (r.includes('/')) return `<span class="gg-ref gg-ref-remote">${esc(r)}</span>`
-    return `<span class="gg-ref gg-ref-branch">${esc(r)}</span>`
-  }).join('')
+  }
+  pills.sort((a, b) => a.rank - b.rank)
+  return pills.map(p => p.html).join('')
 }
 
 /** Highlight `backtick-quoted` spans in free text (returns escaped HTML). */
@@ -242,10 +253,13 @@ export function elbowSlice(x1, x2, color, up) {
 }
 
 /** The graph slice (lane lines + node + elbows) for one commit row. */
-export function rowSlice(c, i, lanes, colorOf, maxCol) {
+export function rowSlice(c, i, lanes, colorOf, maxCol, dirtyLink = null) {
   const w = (maxCol + 1) * COL_W + PAD_X * 2
   const cx = col => PAD_X + col * COL_W + COL_W / 2
   const parts = [`<svg class="gg-slice" width="${w}" height="${ROW_H}" viewBox="0 0 ${w} ${ROW_H}" style="position:static;width:${w}px;height:${ROW_H}px;display:block;flex:none;fill:none;stroke:none">`]
+  if (dirtyLink) {
+    parts.push(`<line x1="${cx(c.col)}" y1="0" x2="${cx(c.col)}" y2="${ROW_H / 2}" stroke="${dirtyLink}" stroke-width="2" stroke-dasharray="4 3" stroke-linecap="round" opacity="0.5"/>`)
+  }
   for (let col = 0; col <= maxCol; col++) {
     const tc = lanes.top[i].get(col)
     const bc = lanes.bottom[i].get(col)
@@ -260,16 +274,38 @@ export function rowSlice(c, i, lanes, colorOf, maxCol) {
   return parts.join('')
 }
 
+/** Top-of-graph "uncommitted changes" row: a dashed node + dashed link down to the first commit. */
+export function dirtyRowHtml(maxCol, firstCol, dirtyCount, color, selected) {
+  const w = (maxCol + 1) * COL_W + PAD_X * 2
+  const cx = PAD_X + firstCol * COL_W + COL_W / 2
+  const svg =
+    `<svg class="gg-slice" width="${w}" height="${ROW_H}" viewBox="0 0 ${w} ${ROW_H}" style="position:static;width:${w}px;height:${ROW_H}px;display:block;flex:none;fill:none;stroke:none">` +
+    `<line x1="${cx}" y1="${ROW_H / 2}" x2="${cx}" y2="${ROW_H}" stroke="${color}" stroke-width="2" stroke-dasharray="4 3" stroke-linecap="round" opacity="0.5"/>` +
+    `<circle cx="${cx}" cy="${ROW_H / 2}" r="${NODE_R}" fill="${color}" opacity="0.5"/>` +
+    `</svg>`
+  const sel = selected === '__uncommitted__' ? ' sel' : ''
+  return (
+    `<div class="gg-row gg-row-dirty${sel}" data-hash="__uncommitted__" style="height:${ROW_H}px">` +
+    svg +
+    `<span class="gg-subject">未提交的更改</span>` +
+    `<span class="gg-meta">${dirtyCount} 个文件</span>` +
+    `</div>`
+  )
+}
+
 /** Full graph markup: one `.gg-row` per commit, each embedding its graph slice + text. */
-export function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash) {
+export function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
   const lanes = computeLanes(rows, rowOf, colorOf)
-  return rows.map((c, i) => {
+  const dirtyColor = dirty > 0 && rows.length > 0 ? (colorOf.get(rows[0].hash) ?? FALLBACK_COLOR) : null
+  const head = dirtyColor ? dirtyRowHtml(maxCol, rows[0].col, dirty, dirtyColor, selectedHash) : ''
+  return head + rows.map((c, i) => {
     const refs = refsHtml(c.refs)
     const meta = [c.short ?? c.hash, c.author, relTime(c.date)].filter(Boolean).join(' · ')
     const sel = c.hash === selectedHash ? ' sel' : ''
+    const link = i === 0 && dirtyColor ? dirtyColor : null
     return (
       `<div class="gg-row${sel}" data-hash="${esc(c.hash)}" style="height:${ROW_H}px">` +
-      rowSlice(c, i, lanes, colorOf, maxCol) +
+      rowSlice(c, i, lanes, colorOf, maxCol, link) +
       refs +
       `<span class="gg-subject">${esc(c.subject || '(no subject)')}</span>` +
       `<span class="gg-meta">${esc(meta)}</span>` +
