@@ -507,7 +507,7 @@ window.__ModuleLoader__.load({
             h('input', {
               className: 'gg-input gg-path', value: path ? path.split(/[\\/]/).filter(Boolean).pop() : '',
               readOnly: true, spellCheck: false, placeholder: '选择仓库路径', title: path,
-              style: { textAlign: 'right', cursor: 'pointer' },
+              style: { textAlign: 'left', cursor: 'pointer' },
               onClick: pickDirectory,
             }),
           ),
