@@ -125,7 +125,9 @@ export function apply(ctx) {
   const pendingGitCalls = new Set()
   const sseData = frame => `data: ${JSON.stringify(frame)}\n\n`
 
-  ctx.on('session/event', (session, event) => {
+  // session/event 在 sessions 服务的 ctx 上 dispatch，须在该 ctx 上监听
+  const sessionCtx = ctx.sessions?.ctx ?? ctx
+  sessionCtx.on('session/event', (session, event) => {
     if (event?.type === 'tool/call' && event.data?.name === 'bash') {
       let command = ''
       try {
