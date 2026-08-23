@@ -312,12 +312,19 @@ index 1234567..89abcde 100644
       const kind = refEl.dataset.kind
       const name = refEl.dataset.ref || ''
       if (kind === 'branch' && name) {
-        items.push({ label: `切换到 ${name}`, cmd: `git checkout ${name}` })
-        items.push({ label: `合并 ${name} 到当前分支`, cmd: `git merge ${name}` })
-        items.push({ sep: true })
+        const isCurrent = refEl.classList.contains('gg-ref-current')
+        if (!isCurrent) {
+          items.push({ label: `切换到 ${name}`, cmd: `git checkout ${name}` })
+          items.push({ label: `合并 ${name} 到当前分支`, cmd: `git merge ${name}` })
+          items.push({ sep: true })
+        }
         items.push({ label: `重命名 ${name}…`, cmd: `git branch -m ${name} <new-name>`, input: true })
         items.push({ label: `删除本地分支 ${name}`, cmd: `git branch -d ${name}` })
         items.push({ label: `删除远程分支 ${name}`, cmd: `git push origin --delete ${name}`, danger: true })
+      } else if (kind === 'remote' && name) {
+        const short = name.replace(/^(origin|upstream|github)\//, '')
+        items.push({ label: `合并 ${name} 到当前分支`, cmd: `git merge ${name}` })
+        items.push({ label: `删除远程分支 ${short}`, cmd: `git push origin --delete ${short}`, danger: true })
       } else if (kind === 'tag' && name) {
         items.push({ label: `删除 tag ${name}`, cmd: `git tag -d ${name}` })
       }

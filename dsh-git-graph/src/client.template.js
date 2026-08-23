@@ -346,12 +346,19 @@ window.__ModuleLoader__.load({
           const kind = refEl.dataset.kind
           const name = refEl.dataset.ref || ''
           if (kind === 'branch' && name) {
-            items.push({ label: `切换到 ${name}`, danger: false, onClick: () => confirmCheckout(name, false) })
-            items.push({ label: `合并 ${name} 到当前分支`, danger: false, onClick: () => confirmMerge(name) })
-            items.push({ sep: true })
+            const isCurrent = refEl.classList.contains('gg-ref-current')
+            if (!isCurrent) {
+              items.push({ label: `切换到 ${name}`, danger: false, onClick: () => confirmCheckout(name, false) })
+              items.push({ label: `合并 ${name} 到当前分支`, danger: false, onClick: () => confirmMerge(name) })
+              items.push({ sep: true })
+            }
             items.push({ label: `重命名 ${name}…`, danger: false, onClick: () => promptRename(name) })
             items.push({ label: `删除本地分支 ${name}`, danger: false, onClick: () => confirmDeleteBranch(name) })
             items.push({ label: `删除远程分支 ${name}`, danger: true, onClick: () => confirmDeleteRemote(name) })
+          } else if (kind === 'remote' && name) {
+            const short = name.replace(/^(origin|upstream|github)\//, '')
+            items.push({ label: `合并 ${name} 到当前分支`, danger: false, onClick: () => confirmMerge(name) })
+            items.push({ label: `删除远程分支 ${short}`, danger: true, onClick: () => confirmDeleteRemote(short) })
           } else if (kind === 'tag' && name) {
             items.push({ label: `删除 tag ${name}`, danger: false, onClick: () => confirmDeleteTag(name) })
           }
