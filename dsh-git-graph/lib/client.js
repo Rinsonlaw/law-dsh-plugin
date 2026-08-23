@@ -426,6 +426,7 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
       '.gg-modal-cmd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--dsw-alias-label-secondary,#c9d1d9);background:var(--dsw-alias-bg-layer-1,#1a1d24);border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.08));border-radius:6px;padding:6px 8px;word-break:break-all}',
       '.gg-modal-note{font-size:12px;color:var(--dsw-alias-label-tertiary,#8b94a7)}',
       '.gg-modal-input{width:100%}',
+      '.gg-modal-select{width:100%;cursor:pointer}',
       '.gg-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:2px}',
       '.gg-toast{position:fixed;bottom:24px;right:24px;z-index:2147483600;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.5)}',
       '.gg-toast.ok{background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#3fb950) 20%,#0f1115);color:#3fb950;border:1px solid color-mix(in srgb,#3fb950 30%,transparent)}',
@@ -668,17 +669,23 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
         }))
       }
 
-      const confirmReset = (hash, mode) => {
-        const hard = mode === 'hard'
-        const note = hard
-          ? '⚠ --hard 会丢弃工作区与暂存区的所有未提交变更，不可恢复！'
-          : (mode === 'soft' ? '保留工作区与暂存区，仅移动分支指针。' : '保留工作区，重置暂存区。')
+      const confirmReset = (hash) => {
         setModal({
-          title: `reset 到 ${hash.slice(0, 7)}（--${mode}）`, command: `git reset --${mode} ${hash.slice(0, 7)}`,
-          note, danger: hard,
-          inputs: hard ? [{ key: 'confirm', label: '输入 RESET 确认', placeholder: 'RESET', initial: '' }] : [], confirmText: 'reset',
+          title: `重置到此提交 ${hash.slice(0, 7)}`,
+          command: `git reset --<mode> ${hash.slice(0, 7)}`,
+          note: '选择重置模式：',
+          danger: false,
+          select: {
+            key: 'mode', initial: 'mixed',
+            options: [
+              { value: 'soft', label: 'soft — 仅移动分支指针，保留暂存区与工作区' },
+              { value: 'mixed', label: 'mixed — 保留工作区，重置暂存区（默认）' },
+              { value: 'hard', label: 'hard — 丢弃工作区与暂存区所有未提交变更（危险）' },
+            ],
+          },
+          confirmText: 'reset',
           onSubmit: (values) => {
-            if (hard && values.confirm !== 'RESET') { setToast({ type: 'err', text: '请输入 RESET 确认' }); throw new Error('mismatch') }
+            const mode = values.mode || 'mixed'
             return doMutation('reset', { hash, mode }, `reset --${mode} ${hash.slice(0, 7)}`)
           },
         })
@@ -703,7 +710,7 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
               items.push({ label: `合并 ${name} 到当前分支`, danger: false, onClick: () => confirmMerge(name) })
               items.push({ sep: true })
             }
-            items.push({ label: `重命名 ${name}…`, danger: false, onClick: () => promptRename(name) })
+            items.push({ label: `重命名 ${name}`, danger: false, onClick: () => promptRename(name) })
             items.push({ label: `删除本地分支 ${name}`, danger: false, onClick: () => confirmDeleteBranch(name) })
             items.push({ label: `删除远程分支 ${name}`, danger: true, onClick: () => confirmDeleteRemote(name) })
           } else if (kind === 'remote' && name) {
@@ -722,14 +729,12 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
             items.push({ label: '切换到此提交（detached）', danger: false, onClick: () => confirmCheckout(hash, true) })
           }
           items.push({ label: '拷贝 commit hash', danger: false, onClick: () => copyHash(hash) })
-          items.push({ label: '新建分支…', danger: false, onClick: () => promptCreateBranch(hash) })
-          items.push({ label: '打 tag…', danger: false, onClick: () => promptCreateTag(hash) })
+          items.push({ label: '新建分支', danger: false, onClick: () => promptCreateBranch(hash) })
+          items.push({ label: '打 tag', danger: false, onClick: () => promptCreateTag(hash) })
           items.push({ sep: true })
-          items.push({ label: 'cherry-pick', danger: false, onClick: () => confirmCherryPick(hash) })
-          items.push({ label: 'revert', danger: false, onClick: () => confirmRevert(hash) })
-          items.push({ label: 'reset（--soft）', danger: false, onClick: () => confirmReset(hash, 'soft') })
-          items.push({ label: 'reset（--mixed）', danger: false, onClick: () => confirmReset(hash, 'mixed') })
-          items.push({ label: 'reset（--hard）', danger: true, onClick: () => confirmReset(hash, 'hard') })
+          items.push({ label: '摘取提交到当前分支（cherry-pick）', danger: false, onClick: () => confirmCherryPick(hash) })
+          items.push({ label: '创建还原提交（revert）', danger: false, onClick: () => confirmRevert(hash) })
+          items.push({ label: '重置到此提交（reset）', danger: false, onClick: () => confirmReset(hash) })
         }
         if (items.length === 0) return
         const x = Math.min(e.clientX, (typeof window !== 'undefined' ? window.innerWidth : 1000) - 260)
@@ -940,6 +945,7 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
         const init = {}
         const inputs = modal.inputs || []
         inputs.forEach(i => { init[i.key] = i.initial || '' })
+        if (modal.select) init[modal.select.key] = modal.select.initial || ''
         setValues(init)
         setBusy(false)
       }, [modal])
@@ -970,6 +976,11 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
               onKeyDown: e => { if (e.key === 'Enter') submit() },
             }),
           ),
+          modal.select && h('select', {
+            className: 'gg-input gg-modal-select',
+            value: values[modal.select.key] ?? '',
+            onChange: e => set(modal.select.key, e.target.value),
+          }, modal.select.options.map(o => h('option', { value: o.value, key: o.value }, o.label))),
           h('div', { className: 'gg-modal-actions' },
             h('button', { className: 'gg-btn', onClick: onClose, disabled: busy }, '取消'),
             h('button', { className: 'gg-btn primary' + (modal.danger ? ' danger' : ''), onClick: submit, disabled: busy }, busy ? '执行中…' : modal.confirmText),

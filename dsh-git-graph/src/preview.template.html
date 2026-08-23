@@ -82,6 +82,8 @@
     .modal-note { font-size: 12px; color: #8b94a7; }
     .modal-input { display: none; }
     .modal-input .input { width: 100%; }
+    .modal-select { display: none; }
+    .modal-select .input { width: 100%; cursor: pointer; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
     .btn.danger { background: #b62324; border-color: transparent; color: #fff; }
     .btn.success { background: #3fb950; border-color: transparent; color: #fff; }
@@ -139,6 +141,7 @@
       <div class="modal-cmd" id="modalCmd"></div>
       <div class="modal-note" id="modalNote"></div>
       <div class="modal-input" id="modalInputWrap"><input class="input" id="modalInput" placeholder="名称" /></div>
+      <div class="modal-select" id="modalSelectWrap"><select class="input" id="modalSelect"></select></div>
       <div class="modal-actions">
         <button class="btn" onclick="closeModal()">取消</button>
         <button class="btn primary" id="modalConfirm">确认</button>
@@ -215,6 +218,8 @@ index 1234567..89abcde 100644
   const modalNote = document.getElementById('modalNote')
   const modalInputWrap = document.getElementById('modalInputWrap')
   const modalInput = document.getElementById('modalInput')
+  const modalSelectWrap = document.getElementById('modalSelectWrap')
+  const modalSelect = document.getElementById('modalSelect')
   const modalConfirm = document.getElementById('modalConfirm')
   const toastEl = document.getElementById('toast')
 
@@ -342,7 +347,7 @@ index 1234567..89abcde 100644
           items.push({ label: `合并 ${name} 到当前分支`, cmd: `git merge ${name}` })
           items.push({ sep: true })
         }
-        items.push({ label: `重命名 ${name}…`, cmd: `git branch -m ${name} <new-name>`, input: true })
+        items.push({ label: `重命名 ${name}`, cmd: `git branch -m ${name} <new-name>`, input: true })
         items.push({ label: `删除本地分支 ${name}`, cmd: `git branch -d ${name}` })
         items.push({ label: `删除远程分支 ${name}`, cmd: `git push origin --delete ${name}`, danger: true })
       } else if (kind === 'remote' && name) {
@@ -361,14 +366,16 @@ index 1234567..89abcde 100644
         items.push({ label: '切换到此提交（detached）', cmd: `git checkout --detach ${hash}` })
       }
       items.push({ label: '拷贝 commit hash', action: () => copyHash(hash) })
-      items.push({ label: '新建分支…', cmd: `git branch <name> ${hash}`, input: true })
-      items.push({ label: '打 tag…', cmd: `git tag <name> ${hash}`, input: true })
+      items.push({ label: '新建分支', cmd: `git branch <name> ${hash}`, input: true })
+      items.push({ label: '打 tag', cmd: `git tag <name> ${hash}`, input: true })
       items.push({ sep: true })
-      items.push({ label: 'cherry-pick', cmd: `git cherry-pick ${hash}` })
-      items.push({ label: 'revert', cmd: `git revert --no-edit ${hash}` })
-      items.push({ label: 'reset（--soft）', cmd: `git reset --soft ${hash}` })
-      items.push({ label: 'reset（--mixed）', cmd: `git reset --mixed ${hash}` })
-      items.push({ label: 'reset（--hard）', cmd: `git reset --hard ${hash}`, danger: true })
+      items.push({ label: '摘取提交到当前分支（cherry-pick）', cmd: `git cherry-pick ${hash}` })
+      items.push({ label: '创建还原提交（revert）', cmd: `git revert --no-edit ${hash}` })
+      items.push({ label: '重置到此提交（reset）', cmd: `git reset --<mode> ${hash}`, select: { options: [
+        { value: 'soft', label: 'soft — 仅移动分支指针，保留暂存区与工作区' },
+        { value: 'mixed', label: 'mixed — 保留工作区，重置暂存区（默认）' },
+        { value: 'hard', label: 'hard — 丢弃工作区与暂存区所有未提交变更（危险）' },
+      ] } })
     }
     if (items.length === 0) return
     menuEl.innerHTML = ''
@@ -407,6 +414,16 @@ index 1234567..89abcde 100644
     modalNote.textContent = item.danger ? '⚠ 高危操作（预览页为模拟演示，不会执行真实 git）' : '预览页为模拟演示，不会执行真实 git 操作。'
     modalInputWrap.style.display = item.input ? 'block' : 'none'
     if (item.input) { modalInput.value = ''; modalInput.focus() }
+    modalSelectWrap.style.display = item.select ? 'block' : 'none'
+    if (item.select) {
+      modalSelect.innerHTML = ''
+      item.select.options.forEach(o => {
+        const opt = document.createElement('option')
+        opt.value = o.value
+        opt.textContent = o.label
+        modalSelect.appendChild(opt)
+      })
+    }
     modalConfirm.className = 'btn primary' + (item.danger ? ' danger' : '')
     modalBackdrop.style.display = 'flex'
   }
