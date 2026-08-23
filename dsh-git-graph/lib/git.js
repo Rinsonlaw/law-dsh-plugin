@@ -406,3 +406,16 @@ export async function push(cwd, { remote = '', branch = '', setUpstream = false 
   const out = await runGit(root, args)
   return { output: out.trim() }
 }
+
+/** 工作区未提交更改的详情：文件列表 + 相对 HEAD 的 diff。 */
+export async function getUncommitted(cwd) {
+  const root = await repoRoot(cwd)
+  const st = await getStatus(root)
+  const files = st.files.map(f => {
+    const code = f.code.trim()
+    const status = code === '??' ? 'A' : (code.charAt(0) || 'M')
+    return { status, path: f.path }
+  })
+  const diff = await runGit(root, ['diff', 'HEAD', '--no-color', '--no-ext-diff']).catch(() => '')
+  return { files, diff, dirty: st.dirty }
+}

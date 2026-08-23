@@ -445,7 +445,7 @@ function rowSlice(c, i, lanes, colorOf, maxCol, dirtyLink = null) {
 }
 
 /** Top-of-graph "uncommitted changes" row: a dashed node + dashed link down to the first commit. */
-function dirtyRowHtml(maxCol, firstCol, dirtyCount, color) {
+function dirtyRowHtml(maxCol, firstCol, dirtyCount, color, selected) {
   const w = (maxCol + 1) * COL_W + PAD_X * 2
   const cx = PAD_X + firstCol * COL_W + COL_W / 2
   const svg =
@@ -453,8 +453,9 @@ function dirtyRowHtml(maxCol, firstCol, dirtyCount, color) {
     `<line x1="${cx}" y1="${ROW_H / 2}" x2="${cx}" y2="${ROW_H}" stroke="${color}" stroke-width="2" stroke-dasharray="4 3" stroke-linecap="round" opacity="0.5"/>` +
     `<circle cx="${cx}" cy="${ROW_H / 2}" r="${NODE_R}" fill="${color}" opacity="0.5"/>` +
     `</svg>`
+  const sel = selected === '__uncommitted__' ? ' sel' : ''
   return (
-    `<div class="gg-row gg-row-dirty" style="height:${ROW_H}px">` +
+    `<div class="gg-row gg-row-dirty${sel}" data-hash="__uncommitted__" style="height:${ROW_H}px">` +
     svg +
     `<span class="gg-subject">未提交的更改</span>` +
     `<span class="gg-meta">${dirtyCount} 个文件</span>` +
@@ -466,7 +467,7 @@ function dirtyRowHtml(maxCol, firstCol, dirtyCount, color) {
 function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
   const lanes = computeLanes(rows, rowOf, colorOf)
   const dirtyColor = dirty > 0 && rows.length > 0 ? (colorOf.get(rows[0].hash) ?? FALLBACK_COLOR) : null
-  const head = dirtyColor ? dirtyRowHtml(maxCol, rows[0].col, dirty, dirtyColor) : ''
+  const head = dirtyColor ? dirtyRowHtml(maxCol, rows[0].col, dirty, dirtyColor, selectedHash) : ''
   return head + rows.map((c, i) => {
     const refs = refsHtml(c.refs)
     const meta = [c.short ?? c.hash, c.author, relTime(c.date)].filter(Boolean).join(' · ')
@@ -568,8 +569,31 @@ index 1234567..89abcde 100644
   function selectCommit(hash) {
     selectedHash = hash
     graphEl.querySelectorAll('.gg-row').forEach(r => r.classList.toggle('sel', r.dataset.hash === hash))
+    if (hash === '__uncommitted__') { renderUncommitted(); return }
     const c = MOCK_COMMITS.find(x => x.hash === hash)
     if (c) renderDetail(c)
+  }
+
+  function renderUncommitted() {
+    const files = [
+      { status: 'M', path: 'src/render.js' },
+      { status: 'A', path: 'src/uncommitted.js' },
+    ]
+    const diff = `diff --git a/src/render.js b/src/render.js
+index 1234567..89abcde 100644
+--- a/src/render.js
++++ b/src/render.js
+@@ -1,6 +1,7 @@
+  import { mount } from './mount.js'
+-import { legacy } from './legacy.js'
++import { init } from './init.js'
+`
+    detailEl.innerHTML =
+      '<h3>未提交的更改</h3>' +
+      '<div class="d-files"><h4>Changed files (' + files.length + ')</h4>' +
+        files.map(f => '<div class="file"><span class="st ' + f.status + '">' + f.status + '</span><span>' + esc(f.path) + '</span></div>').join('') +
+      '</div>' +
+      '<div class="d-diff"><h4>Diff</h4><div class="diff">' + diffHtml(diff) + '</div></div>'
   }
 
   function renderDetail(c) {
@@ -620,6 +644,7 @@ index 1234567..89abcde 100644
     const rowEl = e.target.closest('.gg-row')
     if (!rowEl) return
     const hash = rowEl.dataset.hash
+    if (!hash || hash === '__uncommitted__') return
     const refEl = e.target.closest('.gg-ref')
     const items = []
     if (refEl && refEl.dataset.kind) {
@@ -646,7 +671,11 @@ index 1234567..89abcde 100644
         items.push({ label: `删除 tag ${name}`, cmd: `git tag -d ${name}` })
       }
     } else {
-      items.push({ label: '切换到此提交（detached）', cmd: `git checkout --detach ${hash}` })
+      const headHash = MOCK_COMMITS.find(c => c.refs.some(r => r.startsWith('HEAD')))?.hash
+      if (hash !== headHash) {
+        items.push({ label: '切换到此提交（detached）', cmd: `git checkout --detach ${hash}` })
+      }
+      items.push({ label: '拷贝 commit hash', action: () => copyHash(hash) })
       items.push({ label: '新建分支…', cmd: `git branch <name> ${hash}`, input: true })
       items.push({ label: '打 tag…', cmd: `git tag <name> ${hash}`, input: true })
       items.push({ sep: true })
@@ -668,7 +697,7 @@ index 1234567..89abcde 100644
       const btn = document.createElement('button')
       btn.className = 'menu-item' + (item.danger ? ' danger' : '')
       btn.textContent = item.label
-      btn.onclick = () => { closeMenu(); openModal(item) }
+      btn.onclick = () => { closeMenu(); if (item.action) item.action(); else openModal(item) }
       menuEl.appendChild(btn)
     })
     menuEl.style.left = Math.min(e.clientX, window.innerWidth - 240) + 'px'
@@ -678,6 +707,13 @@ index 1234567..89abcde 100644
   }
 
   function closeMenu() { menuEl.style.display = 'none'; menuBackdrop.style.display = 'none' }
+
+  function copyHash(hash) {
+    navigator.clipboard.writeText(hash).then(
+      () => showToast('ok', '已拷贝 commit hash'),
+      () => showToast('err', '拷贝失败'),
+    )
+  }
 
   function openModal(item) {
     pendingItem = item
@@ -708,14 +744,15 @@ index 1234567..89abcde 100644
   document.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       const commits = filteredCommits()
-      if (commits.length === 0) return
+      const hashes = ['__uncommitted__', ...commits.map(c => c.hash)]
+      if (hashes.length === 0) return
       e.preventDefault()
-      const idx = selectedHash ? commits.findIndex(c => c.hash === selectedHash) : -1
+      const idx = selectedHash ? hashes.indexOf(selectedHash) : -1
       let next
-      if (idx === -1) next = e.key === 'ArrowDown' ? 0 : commits.length - 1
-      else if (e.key === 'ArrowDown') next = Math.min(idx + 1, commits.length - 1)
+      if (idx === -1) next = e.key === 'ArrowDown' ? 0 : hashes.length - 1
+      else if (e.key === 'ArrowDown') next = Math.min(idx + 1, hashes.length - 1)
       else next = Math.max(idx - 1, 0)
-      selectCommit(commits[next].hash)
+      selectCommit(hashes[next])
     } else if (e.key === 'Escape') {
       closeMenu(); closeModal()
     }

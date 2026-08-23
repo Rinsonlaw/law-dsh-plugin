@@ -296,7 +296,7 @@ function rowSlice(c, i, lanes, colorOf, maxCol, dirtyLink = null) {
 }
 
 /** Top-of-graph "uncommitted changes" row: a dashed node + dashed link down to the first commit. */
-function dirtyRowHtml(maxCol, firstCol, dirtyCount, color) {
+function dirtyRowHtml(maxCol, firstCol, dirtyCount, color, selected) {
   const w = (maxCol + 1) * COL_W + PAD_X * 2
   const cx = PAD_X + firstCol * COL_W + COL_W / 2
   const svg =
@@ -304,8 +304,9 @@ function dirtyRowHtml(maxCol, firstCol, dirtyCount, color) {
     `<line x1="${cx}" y1="${ROW_H / 2}" x2="${cx}" y2="${ROW_H}" stroke="${color}" stroke-width="2" stroke-dasharray="4 3" stroke-linecap="round" opacity="0.5"/>` +
     `<circle cx="${cx}" cy="${ROW_H / 2}" r="${NODE_R}" fill="${color}" opacity="0.5"/>` +
     `</svg>`
+  const sel = selected === '__uncommitted__' ? ' sel' : ''
   return (
-    `<div class="gg-row gg-row-dirty" style="height:${ROW_H}px">` +
+    `<div class="gg-row gg-row-dirty${sel}" data-hash="__uncommitted__" style="height:${ROW_H}px">` +
     svg +
     `<span class="gg-subject">未提交的更改</span>` +
     `<span class="gg-meta">${dirtyCount} 个文件</span>` +
@@ -317,7 +318,7 @@ function dirtyRowHtml(maxCol, firstCol, dirtyCount, color) {
 function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
   const lanes = computeLanes(rows, rowOf, colorOf)
   const dirtyColor = dirty > 0 && rows.length > 0 ? (colorOf.get(rows[0].hash) ?? FALLBACK_COLOR) : null
-  const head = dirtyColor ? dirtyRowHtml(maxCol, rows[0].col, dirty, dirtyColor) : ''
+  const head = dirtyColor ? dirtyRowHtml(maxCol, rows[0].col, dirty, dirtyColor, selectedHash) : ''
   return head + rows.map((c, i) => {
     const refs = refsHtml(c.refs)
     const meta = [c.short ?? c.hash, c.author, relTime(c.date)].filter(Boolean).join(' · ')
@@ -518,9 +519,23 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
         }
       }, [sessionId, path])
 
+      const openUncommitted = useCallback(async () => {
+        setSelected('__uncommitted__')
+        setDetail({ status: 'loading', data: null, error: null })
+        try {
+          const d = await api('uncommitted', { sessionId, cwd: path || undefined })
+          setDetail({ status: 'ready', data: d, error: null })
+        } catch (error) {
+          setDetail({ status: 'error', data: null, error: error?.message ?? String(error) })
+        }
+      }, [sessionId, path])
+
       const onRowClick = (e) => {
         const row = e.target.closest('.gg-row')
-        if (row && row.dataset.hash) openCommit(row.dataset.hash)
+        const hash = row?.dataset.hash
+        if (!hash) return
+        if (hash === '__uncommitted__') openUncommitted()
+        else openCommit(hash)
       }
 
       // ── 写操作：执行 + 右键菜单 + 确认弹窗 ───────────────────────────────
@@ -552,6 +567,15 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
           setPushing(false)
         }
       }, [pushing, sessionId, path, load])
+
+      const copyHash = useCallback(async (hash) => {
+        try {
+          await navigator.clipboard.writeText(hash)
+          setToast({ type: 'ok', text: '已拷贝 commit hash' })
+        } catch {
+          setToast({ type: 'err', text: '拷贝失败' })
+        }
+      }, [])
 
       const statusNote = async () => {
         try {
@@ -665,6 +689,7 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
         if (!rowEl) return
         const hash = rowEl.dataset.hash
         if (!hash) return
+        if (hash === '__uncommitted__') return
         e.preventDefault()
         const refEl = e.target.closest('.gg-ref')
         const items = []
@@ -692,7 +717,11 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
             items.push({ label: `删除 tag ${name}`, danger: false, onClick: () => confirmDeleteTag(name) })
           }
         } else {
-          items.push({ label: '切换到此提交（detached）', danger: false, onClick: () => confirmCheckout(hash, true) })
+          const headHash = state.data?.commits?.find(c => c.refs?.some(r => r.startsWith('HEAD')))?.hash
+          if (hash !== headHash) {
+            items.push({ label: '切换到此提交（detached）', danger: false, onClick: () => confirmCheckout(hash, true) })
+          }
+          items.push({ label: '拷贝 commit hash', danger: false, onClick: () => copyHash(hash) })
           items.push({ label: '新建分支…', danger: false, onClick: () => promptCreateBranch(hash) })
           items.push({ label: '打 tag…', danger: false, onClick: () => promptCreateTag(hash) })
           items.push({ sep: true })
@@ -730,7 +759,13 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
         })
       }, [state.data, query, authorFilter])
 
-      const visibleHashes = useMemo(() => filteredCommits.map(c => c.hash), [filteredCommits])
+      const visibleHashes = useMemo(() => {
+        const hashes = filteredCommits.map(c => c.hash)
+        if ((state.data?.dirty ?? 0) > 0 && query.trim() === '' && authorFilter === '') {
+          hashes.unshift('__uncommitted__')
+        }
+        return hashes
+      }, [filteredCommits, state.data, query, authorFilter])
 
       const layoutData = useMemo(() => layout(filteredCommits), [filteredCommits])
 
@@ -753,7 +788,8 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
           setSelected(visibleHashes[next])
           setDetail({ status: 'idle', data: null, error: null })
         } else if (e.key === 'Enter') {
-          if (selected) openCommit(selected)
+          if (selected === '__uncommitted__') openUncommitted()
+          else if (selected) openCommit(selected)
         } else if (e.key === 'Escape') {
           setSelected(null)
           setDetail({ status: 'idle', data: null, error: null })
@@ -834,7 +870,23 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
             selected !== null && detail.status === 'idle' && h('div', { className: 'gg-empty' }, '按 Enter 查看此提交详情，↑/↓ 切换提交'),
             selected !== null && detail.status === 'loading' && h('div', { className: 'gg-status' }, 'Loading commit…'),
             selected !== null && detail.status === 'error' && h('div', { className: 'gg-status err' }, 'Error: ' + detail.error),
-            selected !== null && detail.status === 'ready' && detail.data && h(Fragment, null,
+            selected === '__uncommitted__' && detail.status === 'ready' && detail.data && h(Fragment, null,
+              h('h3', null, '未提交的更改'),
+              h('div', { className: 'gg-d-files' },
+                h('h4', null, `Changed files (${detail.data.files.length})`),
+                h('div', null, detail.data.files.map(f =>
+                  h('div', { className: 'gg-file', key: f.path },
+                    h('span', { className: 'st ' + f.status.charAt(0) }, f.status.charAt(0)),
+                    h('span', null, esc(f.path)),
+                  ),
+                )),
+              ),
+              h('div', { className: 'gg-d-diff' },
+                h('h4', null, 'Diff'),
+                detail.data.diff ? h('div', { className: 'gg-diff', dangerouslySetInnerHTML: { __html: diffHtml(detail.data.diff) } }) : h('div', { className: 'gg-empty' }, '无未提交的已跟踪文件改动。'),
+              ),
+            ),
+            selected !== null && selected !== '__uncommitted__' && detail.status === 'ready' && detail.data && h(Fragment, null,
               h('div', { dangerouslySetInnerHTML: { __html: '<h3>' + esc(detail.data.subject || '(no subject)') + '</h3>' } }),
               h('div', { className: 'gg-d-meta' },
                 h('span', null, esc(detail.data.short) + ' · ' + esc(detail.data.author)),

@@ -4,7 +4,7 @@
 // The client half (lib/client.js) fetches these routes.
 
 import {
-  getGraph, getCommit, getStatus,
+  getGraph, getCommit, getStatus, getUncommitted,
   checkout, createBranch, renameBranch, deleteBranch, merge,
   createTag, deleteTag, cherryPick, revert, reset, deleteRemoteBranch, push,
   currentBranch, GitError,
@@ -213,6 +213,7 @@ export function apply(ctx) {
           writeOk(res, await getCommit(cwd, hash))
           return
         }
+        if (method === 'uncommitted') { writeOk(res, await getUncommitted(cwd)); return }
         // ── 写操作 ─────────────────────────────────────────────────────────
         if (method === 'status') { writeOk(res, await getStatus(cwd)); return }
         if (method === 'checkout') {

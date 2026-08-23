@@ -275,7 +275,7 @@ export function rowSlice(c, i, lanes, colorOf, maxCol, dirtyLink = null) {
 }
 
 /** Top-of-graph "uncommitted changes" row: a dashed node + dashed link down to the first commit. */
-export function dirtyRowHtml(maxCol, firstCol, dirtyCount, color) {
+export function dirtyRowHtml(maxCol, firstCol, dirtyCount, color, selected) {
   const w = (maxCol + 1) * COL_W + PAD_X * 2
   const cx = PAD_X + firstCol * COL_W + COL_W / 2
   const svg =
@@ -283,8 +283,9 @@ export function dirtyRowHtml(maxCol, firstCol, dirtyCount, color) {
     `<line x1="${cx}" y1="${ROW_H / 2}" x2="${cx}" y2="${ROW_H}" stroke="${color}" stroke-width="2" stroke-dasharray="4 3" stroke-linecap="round" opacity="0.5"/>` +
     `<circle cx="${cx}" cy="${ROW_H / 2}" r="${NODE_R}" fill="${color}" opacity="0.5"/>` +
     `</svg>`
+  const sel = selected === '__uncommitted__' ? ' sel' : ''
   return (
-    `<div class="gg-row gg-row-dirty" style="height:${ROW_H}px">` +
+    `<div class="gg-row gg-row-dirty${sel}" data-hash="__uncommitted__" style="height:${ROW_H}px">` +
     svg +
     `<span class="gg-subject">未提交的更改</span>` +
     `<span class="gg-meta">${dirtyCount} 个文件</span>` +
@@ -296,7 +297,7 @@ export function dirtyRowHtml(maxCol, firstCol, dirtyCount, color) {
 export function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
   const lanes = computeLanes(rows, rowOf, colorOf)
   const dirtyColor = dirty > 0 && rows.length > 0 ? (colorOf.get(rows[0].hash) ?? FALLBACK_COLOR) : null
-  const head = dirtyColor ? dirtyRowHtml(maxCol, rows[0].col, dirty, dirtyColor) : ''
+  const head = dirtyColor ? dirtyRowHtml(maxCol, rows[0].col, dirty, dirtyColor, selectedHash) : ''
   return head + rows.map((c, i) => {
     const refs = refsHtml(c.refs)
     const meta = [c.short ?? c.hash, c.author, relTime(c.date)].filter(Boolean).join(' · ')
