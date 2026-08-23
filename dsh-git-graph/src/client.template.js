@@ -158,6 +158,7 @@ window.__ModuleLoader__.load({
       const [authorFilter, setAuthorFilter] = useState('')
       const [pushing, setPushing] = useState(false)
       const [refreshing, setRefreshing] = useState(false)
+      const refreshTimer = useRef(null)
       const scrollRef = useRef(null)
       const maxCountRef = useRef(maxCount)
       useEffect(() => { maxCountRef.current = maxCount }, [maxCount])
@@ -170,6 +171,7 @@ window.__ModuleLoader__.load({
 
       const load = useCallback(async (targetPath) => {
         setRefreshing(true)
+        if (refreshTimer.current) clearTimeout(refreshTimer.current)
         setState(s => ({ ...s, status: 'loading', error: null }))
         try {
           const data = await api('graph', { sessionId, cwd: targetPath || undefined, maxCount: maxCountRef.current })
@@ -201,7 +203,8 @@ window.__ModuleLoader__.load({
         } catch (error) {
           setState({ status: 'error', data: null, error: error?.message ?? String(error) })
         } finally {
-          setRefreshing(false)
+          // 保证「正在刷新…」至少停留片刻，避免本地 git 命令过快导致一闪而过
+          refreshTimer.current = setTimeout(() => setRefreshing(false), 800)
         }
       }, [sessionId])
 
