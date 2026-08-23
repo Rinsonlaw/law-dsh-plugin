@@ -242,8 +242,6 @@ const HASH_RE = /^[0-9a-f]{7,40}$/i
 /** 工作区状态：当前分支、upstream、ahead/behind、未提交变更文件。 */
 export async function getStatus(cwd) {
   const root = await repoRoot(cwd)
-  // 当前 HEAD 提交哈希，作为前端自动刷新轮询的状态指纹。
-  const head = await runGit(root, ['rev-parse', 'HEAD']).catch(() => '').then(o => o.trim())
   const raw = await runGit(root, ['status', '--porcelain=v1', '-b'])
   const lines = raw.split('\n')
   const header = (lines[0] ?? '').replace(/^##\s*/, '').trim()
@@ -271,7 +269,7 @@ export async function getStatus(cwd) {
     }
   }
   const files = lines.slice(1).filter(l => l.trim() !== '').map(l => ({ code: l.slice(0, 2), path: l.slice(3) }))
-  return { root, branch, detached, upstream, ahead, behind, dirty: files.length, files, head }
+  return { root, branch, detached, upstream, ahead, behind, dirty: files.length, files }
 }
 
 /** 是否存在未解决的合并冲突（`UU`/`AA`/`DD` 等 unmerged 状态）。 */
