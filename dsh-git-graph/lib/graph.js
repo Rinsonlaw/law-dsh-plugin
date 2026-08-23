@@ -105,18 +105,29 @@ export function fmtDate(iso) {
 
 export function refsHtml(refs) {
   if (!Array.isArray(refs) || refs.length === 0) return ''
-  return refs.map(r => {
-    if (r === 'HEAD') return '<span class="gg-ref gg-ref-head" data-kind="head">HEAD</span>'
-    if (r.startsWith('HEAD ->')) {
+  // 远端分支识别（与 branchNames 一致，避免把 feature/x 误判为远端）
+  const isRemote = r => /^(origin|upstream|github)\//.test(r)
+  // 排序优先级：HEAD → 当前分支 → 本地分支 → 远端分支 → tag（同优先级保持原始顺序）
+  const rank = { head: 0, current: 1, branch: 2, remote: 3, tag: 4 }
+  const pills = []
+  for (const r of refs) {
+    if (r === 'HEAD') {
+      pills.push({ rank: rank.head, html: '<span class="gg-ref gg-ref-head" data-kind="head">HEAD</span>' })
+    } else if (r.startsWith('HEAD ->')) {
       const branch = r.slice('HEAD ->'.length).trim()
-      const head = '<span class="gg-ref gg-ref-head" data-kind="head">HEAD</span>'
-      const b = branch ? `<span class="gg-ref gg-ref-current" data-kind="branch" data-ref="${esc(branch)}">${esc(branch)}</span>` : ''
-      return head + b
+      pills.push({ rank: rank.head, html: '<span class="gg-ref gg-ref-head" data-kind="head">HEAD</span>' })
+      if (branch) pills.push({ rank: rank.current, html: `<span class="gg-ref gg-ref-current" data-kind="branch" data-ref="${esc(branch)}">${esc(branch)}</span>` })
+    } else if (r.startsWith('tag: ')) {
+      const name = r.slice(5)
+      pills.push({ rank: rank.tag, html: `<span class="gg-ref gg-ref-tag" data-kind="tag" data-ref="${esc(name)}">${esc(name)}</span>` })
+    } else if (isRemote(r)) {
+      pills.push({ rank: rank.remote, html: `<span class="gg-ref gg-ref-remote" data-kind="remote" data-ref="${esc(r)}">${esc(r)}</span>` })
+    } else {
+      pills.push({ rank: rank.branch, html: `<span class="gg-ref gg-ref-branch" data-kind="branch" data-ref="${esc(r)}">${esc(r)}</span>` })
     }
-    if (r.startsWith('tag: ')) return `<span class="gg-ref gg-ref-tag" data-kind="tag" data-ref="${esc(r.slice(5))}">${esc(r.slice(5))}</span>`
-    if (r.includes('/')) return `<span class="gg-ref gg-ref-remote" data-kind="remote" data-ref="${esc(r)}">${esc(r)}</span>`
-    return `<span class="gg-ref gg-ref-branch" data-kind="branch" data-ref="${esc(r)}">${esc(r)}</span>`
-  }).join('')
+  }
+  pills.sort((a, b) => a.rank - b.rank)
+  return pills.map(p => p.html).join('')
 }
 
 /** Highlight `backtick-quoted` spans in free text (returns escaped HTML). */
