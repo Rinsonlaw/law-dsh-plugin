@@ -472,6 +472,7 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
       const [query, setQuery] = useState('')
       const [authorFilter, setAuthorFilter] = useState('')
       const [pushing, setPushing] = useState(false)
+      const [refreshing, setRefreshing] = useState(false)
       const scrollRef = useRef(null)
       const maxCountRef = useRef(maxCount)
       useEffect(() => { maxCountRef.current = maxCount }, [maxCount])
@@ -483,6 +484,7 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
       }, [toast])
 
       const load = useCallback(async (targetPath) => {
+        setRefreshing(true)
         setState(s => ({ ...s, status: 'loading', error: null }))
         try {
           const data = await api('graph', { sessionId, cwd: targetPath || undefined, maxCount: maxCountRef.current })
@@ -513,6 +515,8 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
           }
         } catch (error) {
           setState({ status: 'error', data: null, error: error?.message ?? String(error) })
+        } finally {
+          setRefreshing(false)
         }
       }, [sessionId])
 
@@ -527,7 +531,7 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
           try {
             const data = JSON.parse(e.data)
             if (data.type === 'git-command') {
-              setToast({ type: 'warn', text: '检测到 git 变更，正在刷新…' })
+              setToast({ type: 'warn', text: '检测到 git 变更' })
               load(path)
             }
           } catch { /* ignore */ }
@@ -890,12 +894,14 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
             state.status === 'error' && h('div', { className: 'gg-status err' }, 'Error: ' + state.error),
             state.status === 'ready' && state.data && !state.data.isRepo && h('div', { className: 'gg-status' }, 'Not a git repository. Enter a repository path above.'),
             state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length === 0 && h('div', { className: 'gg-status' }, 'No commits yet.'),
-            state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length > 0 && h('div', { className: 'gg-count-line' + (pushing ? ' pushing' : '') },
+            state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length > 0 && h('div', { className: 'gg-count-line' + (pushing || refreshing ? ' pushing' : '') },
               pushing
                 ? '推送中…'
-                : (filteredCommits.length === state.data.commits.length
-                  ? `${state.data.commits.length} commits`
-                  : `匹配 ${filteredCommits.length} / ${state.data.commits.length} commits`),
+                : (refreshing
+                  ? '正在刷新…'
+                  : (filteredCommits.length === state.data.commits.length
+                    ? `${state.data.commits.length} commits`
+                    : `匹配 ${filteredCommits.length} / ${state.data.commits.length} commits`)),
             ),
             state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length > 0 && h('div', {
               className: 'gg-graph-scroll',
