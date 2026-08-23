@@ -173,8 +173,29 @@ window.__ModuleLoader__.load({
           const data = await api('graph', { sessionId, cwd: targetPath || undefined, maxCount: maxCountRef.current })
           setState({ status: 'ready', data, error: null })
           if (data && data.root) setPath(data.root)
-          setSelected(null)
-          setDetail({ status: 'idle', data: null, error: null })
+          // 默认选中第一项并显示详情（未提交节点优先，否则最新提交）
+          if (data && data.isRepo && data.commits && data.commits.length > 0) {
+            const cwd = data.root
+            if ((data.dirty || 0) > 0) {
+              setSelected('__uncommitted__')
+              setDetail({ status: 'loading', data: null, error: null })
+              try {
+                const d = await api('uncommitted', { sessionId, cwd })
+                setDetail({ status: 'ready', data: d, error: null })
+              } catch (e) { setDetail({ status: 'error', data: null, error: e?.message ?? String(e) }) }
+            } else {
+              const first = data.commits[0]
+              setSelected(first.hash)
+              setDetail({ status: 'loading', data: null, error: null })
+              try {
+                const d = await api('commit', { sessionId, cwd, hash: first.hash })
+                setDetail({ status: 'ready', data: d, error: null })
+              } catch (e) { setDetail({ status: 'error', data: null, error: e?.message ?? String(e) }) }
+            }
+          } else {
+            setSelected(null)
+            setDetail({ status: 'idle', data: null, error: null })
+          }
         } catch (error) {
           setState({ status: 'error', data: null, error: error?.message ?? String(error) })
         }
@@ -486,11 +507,9 @@ window.__ModuleLoader__.load({
           if (idx === -1) next = e.key === 'ArrowDown' ? 0 : visibleHashes.length - 1
           else if (e.key === 'ArrowDown') next = Math.min(idx + 1, visibleHashes.length - 1)
           else next = Math.max(idx - 1, 0)
-          setSelected(visibleHashes[next])
-          setDetail({ status: 'idle', data: null, error: null })
-        } else if (e.key === 'Enter') {
-          if (selected === '__uncommitted__') openUncommitted()
-          else if (selected) openCommit(selected)
+          const hash = visibleHashes[next]
+          if (hash === '__uncommitted__') openUncommitted()
+          else openCommit(hash)
         } else if (e.key === 'Escape') {
           setSelected(null)
           setDetail({ status: 'idle', data: null, error: null })
@@ -570,7 +589,7 @@ window.__ModuleLoader__.load({
           ),
           h('div', { className: 'gg-detail' },
             selected === null && h('div', { className: 'gg-empty' }, 'Select a commit to see its message, changed files, and diff.'),
-            selected !== null && detail.status === 'idle' && h('div', { className: 'gg-empty' }, '按 Enter 查看此提交详情，↑/↓ 切换提交'),
+            selected !== null && detail.status === 'idle' && h('div', { className: 'gg-empty' }, '↑/↓ 切换提交'),
             selected !== null && detail.status === 'loading' && h('div', { className: 'gg-status' }, 'Loading commit…'),
             selected !== null && detail.status === 'error' && h('div', { className: 'gg-status err' }, 'Error: ' + detail.error),
             selected === '__uncommitted__' && detail.status === 'ready' && detail.data && h(Fragment, null,
