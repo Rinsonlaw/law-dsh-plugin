@@ -637,7 +637,10 @@ index 1234567..89abcde 100644
         items.push({ label: `删除远程分支 ${name}`, cmd: `git push origin --delete ${name}`, danger: true })
       } else if (kind === 'remote' && name) {
         const short = name.replace(/^(origin|upstream|github)\//, '')
-        items.push({ label: `合并 ${name} 到当前分支`, cmd: `git merge ${name}` })
+        const headHash = MOCK_COMMITS.find(c => c.refs.some(r => r.startsWith('HEAD')))?.hash
+        if (hash !== headHash) {
+          items.push({ label: `合并 ${name} 到当前分支`, cmd: `git merge ${name}` })
+        }
         items.push({ label: `删除远程分支 ${short}`, cmd: `git push origin --delete ${short}`, danger: true })
       } else if (kind === 'tag' && name) {
         items.push({ label: `删除 tag ${name}`, cmd: `git tag -d ${name}` })

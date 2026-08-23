@@ -683,7 +683,10 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
             items.push({ label: `删除远程分支 ${name}`, danger: true, onClick: () => confirmDeleteRemote(name) })
           } else if (kind === 'remote' && name) {
             const short = name.replace(/^(origin|upstream|github)\//, '')
-            items.push({ label: `合并 ${name} 到当前分支`, danger: false, onClick: () => confirmMerge(name) })
+            const headHash = state.data?.commits?.find(c => c.refs?.some(r => r.startsWith('HEAD')))?.hash
+            if (hash !== headHash) {
+              items.push({ label: `合并 ${name} 到当前分支`, danger: false, onClick: () => confirmMerge(name) })
+            }
             items.push({ label: `删除远程分支 ${short}`, danger: true, onClick: () => confirmDeleteRemote(short) })
           } else if (kind === 'tag' && name) {
             items.push({ label: `删除 tag ${name}`, danger: false, onClick: () => confirmDeleteTag(name) })
