@@ -86,8 +86,9 @@ window.__ModuleLoader__.load({
       '.gg-diff .dl-ctx{color:var(--dsw-alias-label-secondary,#c9d1d9)}',
       '.gg-empty{color:var(--dsw-alias-label-tertiary,#8b94a7);padding:12px 2px}',
       // footer toggle button
-      '.gg-toggle{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.1));background:transparent;color:var(--dsw-alias-label-secondary,#c9d1d9);cursor:pointer}',
+      '.gg-toggle{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;flex:none;border-radius:8px;border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.1));background:transparent;color:var(--dsw-alias-label-secondary,#c9d1d9);cursor:pointer}',
       '.gg-toggle:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary,#e6e6e6) 8%,transparent);color:var(--dsw-alias-label-primary,#e6e6e6)}',
+      '.gg-toggle-rail{width:36px;height:36px;margin-top:6px}',
       // floating overlay
       '.gg-overlay{position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.5);display:flex;align-items:stretch;justify-content:flex-end}',
       '.gg-overlay-panel{width:min(920px,94vw);height:100%;background:var(--dsw-alias-bg-base,#0f1115);box-shadow:-20px 0 60px rgba(0,0,0,.5);display:flex;flex-direction:column}',
@@ -713,15 +714,17 @@ window.__ModuleLoader__.load({
       if (overlayCleanup) overlayCleanup()
     }
 
-    function ToggleButton() {
+    function ToggleButton(props) {
+      const wide = props?.wide !== false
       const onClick = () => {
         if (overlayRoot) closeOverlay()
         else if (appCtx) openOverlay(appCtx)
       }
       return h(Tooltip, { label: 'Git Graph', side: 'right', delayMs: 400 },
         h('button', {
-          className: 'gg-toggle', 'aria-label': 'Git Graph', onClick,
-        }, h(IconBranchOutline16, { size: 16 })),
+          className: 'gg-toggle' + (wide ? '' : ' gg-toggle-rail'),
+          'aria-label': 'Git Graph', onClick,
+        }, h(IconBranchOutline16, { size: wide ? 16 : 18 })),
       )
     }
 
