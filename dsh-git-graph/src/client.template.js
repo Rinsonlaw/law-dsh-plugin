@@ -503,14 +503,12 @@ window.__ModuleLoader__.load({
             h(IconBranchOutline16, { size: 16 }),
             'Git Graph',
           ),
-          h(Tooltip, { label: path || '选择仓库路径', side: 'bottom', delayMs: 400 },
-            h('input', {
-              className: 'gg-input gg-path', value: path ? path.split(/[\\/]/).filter(Boolean).pop() : '',
-              readOnly: true, spellCheck: false, placeholder: '选择仓库路径',
-              style: { textAlign: 'left', cursor: 'pointer' },
-              onClick: pickDirectory,
-            }),
-          ),
+          h('input', {
+            className: 'gg-input gg-path', value: path ? path.split(/[\\/]/).filter(Boolean).pop() : '',
+            readOnly: true, spellCheck: false, placeholder: '选择仓库路径', title: path,
+            style: { textAlign: 'left', cursor: 'pointer' },
+            onClick: pickDirectory,
+          }),
           h('input', {
             className: 'gg-input gg-search', value: query,
             spellCheck: false, placeholder: '搜索提交 / hash / 作者', title: '搜索',
