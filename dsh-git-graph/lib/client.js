@@ -495,6 +495,18 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
         load(initialCwd)
       }, [load, initialCwd])
 
+      // 订阅 agent 执行的 git 命令完成事件，自动刷新
+      useEffect(() => {
+        const es = new EventSource('/gitgraph/events')
+        es.onmessage = (e) => {
+          try {
+            const data = JSON.parse(e.data)
+            if (data.type === 'git-command') load(path)
+          } catch { /* ignore */ }
+        }
+        return () => es.close()
+      }, [path, load])
+
       const openCommit = useCallback(async (hash) => {
         setSelected(hash)
         setDetail({ status: 'loading', data: null, error: null })

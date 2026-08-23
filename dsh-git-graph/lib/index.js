@@ -120,6 +120,56 @@ function sessionCwd(ctx, sessionId, clientCwd) {
 export function apply(ctx) {
   const fence = req => isTrustedRequest(req, ctx.webRuntime?.trustedHosts ?? [])
 
+  // ── SSE：agent 执行 git 命令后推送刷新信号给前端 ───────────────────────
+  const connections = new Set()
+  const pendingGitCalls = new Set()
+  const sseData = frame => `data: ${JSON.stringify(frame)}\n\n`
+
+  ctx.on('internal/dispatch', (_mode, eventName, args) => {
+    if (eventName !== 'session/event') return
+    const [, event] = args
+    if (event?.type === 'tool/call' && event.data?.name === 'bash') {
+      let command = ''
+      try {
+        const parsed = JSON.parse(event.data.arguments || '{}')
+        command = parsed.command || ''
+      } catch { /* arguments 可能不是 JSON */ }
+      if (/^\s*git\b/.test(command)) pendingGitCalls.add(event.data.callId)
+    } else if (event?.type === 'tool/result') {
+      const callId = event.data?.message?.source?.callId
+      if (callId && pendingGitCalls.delete(callId)) {
+        for (const res of connections) res.write(sseData({ type: 'git-command' }))
+      }
+    }
+  }, { global: true })
+
+  ctx.effect(() => {
+    const dispose = ctx.webServer.register({
+      kind: 'exact',
+      path: '/gitgraph/events',
+      handler: (req, res) => {
+        if (req.method !== 'GET' && req.method !== 'HEAD') {
+          res.writeHead(405)
+          res.end()
+          return
+        }
+        res.writeHead(200, {
+          'content-type': 'text/event-stream',
+          'cache-control': 'no-cache',
+          'connection': 'keep-alive',
+        })
+        res.write(': connected\n\n')
+        connections.add(res)
+        res.on('close', () => connections.delete(res))
+      },
+    })
+    return () => {
+      dispose()
+      for (const res of connections) res.destroy()
+      connections.clear()
+    }
+  }, 'dsh-git-graph: /gitgraph/events sse')
+
   ctx.effect(() => ctx.webServer.register({
     kind: 'prefix',
     path: '/gitgraph/api',
