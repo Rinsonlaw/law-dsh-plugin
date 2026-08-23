@@ -265,6 +265,15 @@ window.__ModuleLoader__.load({
         }
       }, [])
 
+      const pickDirectory = useCallback(async () => {
+        try {
+          const res = await api('pickDirectory', { sessionId, cwd: path || undefined })
+          if (res && res.path) load(res.path)
+        } catch (error) {
+          setToast({ type: 'err', text: '选择目录失败：' + (error?.message ?? error) })
+        }
+      }, [sessionId, path, load])
+
       const statusNote = async () => {
         try {
           const st = await api('status', { sessionId, cwd: path || undefined })
@@ -494,10 +503,14 @@ window.__ModuleLoader__.load({
             h(IconBranchOutline16, { size: 16 }),
             'Git Graph',
           ),
-          h('input', {
-            className: 'gg-input gg-path', value: path, readOnly: true,
-            spellCheck: false, placeholder: 'repository path', title: '仓库路径',
-          }),
+          h(Tooltip, { label: path || '选择仓库路径', side: 'bottom', delayMs: 400 },
+            h('input', {
+              className: 'gg-input gg-path', value: path ? path.split(/[\\/]/).filter(Boolean).pop() : '',
+              readOnly: true, spellCheck: false, placeholder: '选择仓库路径', title: path,
+              style: { textAlign: 'right', cursor: 'pointer' },
+              onClick: pickDirectory,
+            }),
+          ),
           h('input', {
             className: 'gg-input gg-search', value: query,
             spellCheck: false, placeholder: '搜索提交 / hash / 作者', title: '搜索',

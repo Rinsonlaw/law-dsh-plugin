@@ -11,7 +11,7 @@ import {
 } from './git.js'
 
 export const name = 'git-graph'
-export const inject = ['webServer', 'sessions', 'webRuntime']
+export const inject = ['webServer', 'sessions', 'webRuntime', 'directoryPicker']
 
 /** Whether a hostname is loopback (the default DSH web bind). */
 function isLoopback(hostname) {
@@ -215,6 +215,16 @@ export function apply(ctx) {
           return
         }
         if (method === 'uncommitted') { writeOk(res, await getUncommitted(cwd)); return }
+        if (method === 'pickDirectory') {
+          const cap = ctx.directoryPicker?.capability?.()
+          if (cap?.kind === 'native') {
+            const picked = await cap.pick(new AbortController().signal)
+            writeOk(res, { path: picked })
+          } else {
+            writeOk(res, { path: null, unsupported: cap?.kind ?? null })
+          }
+          return
+        }
         // ── 写操作 ─────────────────────────────────────────────────────────
         if (method === 'status') { writeOk(res, await getStatus(cwd)); return }
         if (method === 'checkout') {
