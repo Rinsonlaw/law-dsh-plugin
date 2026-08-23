@@ -469,6 +469,7 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
       const [authorFilter, setAuthorFilter] = useState('')
       const [pushing, setPushing] = useState(false)
       const scrollRef = useRef(null)
+      const statusFingerprint = useRef(null)
       const maxCountRef = useRef(maxCount)
       useEffect(() => { maxCountRef.current = maxCount }, [maxCount])
 
@@ -494,6 +495,24 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
       useEffect(() => {
         load(initialCwd)
       }, [load, initialCwd])
+
+      // 自动刷新：每 3 秒轮询 HEAD/dirty 指纹，变化则重新加载图
+      useEffect(() => {
+        statusFingerprint.current = null
+        const poll = async () => {
+          try {
+            const st = await api('status', { sessionId, cwd: path || undefined })
+            if (!st || !st.head) return
+            const fp = st.head + ':' + st.dirty
+            if (statusFingerprint.current !== null && fp !== statusFingerprint.current) {
+              load(path)
+            }
+            statusFingerprint.current = fp
+          } catch { /* ignore */ }
+        }
+        const timer = setInterval(poll, 3000)
+        return () => clearInterval(timer)
+      }, [sessionId, path, load])
 
       const openCommit = useCallback(async (hash) => {
         setSelected(hash)
