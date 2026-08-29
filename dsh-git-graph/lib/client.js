@@ -360,7 +360,7 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
       '.gg-detail{flex:1 1 40%;min-width:280px;max-width:46%;display:flex;flex-direction:column;min-height:0;overflow:auto;padding:12px 14px}',
       '.gg-graph-scroll{min-width:max-content}',
       '.gg-count-line{flex:none;display:flex;align-items:center;gap:8px;padding:4px 12px;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b94a7);border-bottom:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.06));position:sticky;top:0;background:var(--dsw-alias-bg-base,#0f1115);z-index:1}',
-      '.gg-flow-badge{flex:none;display:inline-flex;align-items:center;padding:0 8px;border-radius:999px;font-size:10px;font-weight:600;line-height:16px;color:#fff}',
+      '.gg-flow-badge{flex:none;display:inline-flex;align-items:center;padding:0 10px 0 8px;font-size:10px;font-weight:600;line-height:20px;color:#fff;clip-path:polygon(0 0,calc(100% - 7px) 0,100% 50%,calc(100% - 7px) 100%,0 100%)}',
       '.gg-flow-badge.on{background:#22c55e}',
       '.gg-flow-badge.off{background:#6b7280}',
       '.gg-count-line.pushing{color:var(--dsw-alias-state-business-primary,#4c8dff);font-weight:600}',
