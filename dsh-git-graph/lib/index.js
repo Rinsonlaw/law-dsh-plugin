@@ -4,7 +4,7 @@
 // The client half (lib/client.js) fetches these routes.
 
 import {
-  getGraph, getCommit, getStatus, getUncommitted,
+  getGraph, getCommit, getStatus, getUncommitted, initGitFlow,
   checkout, createBranch, renameBranch, deleteBranch, merge,
   createTag, deleteTag, cherryPick, revert, reset, deleteRemoteBranch, push,
   currentBranch, GitError,
@@ -216,6 +216,7 @@ export function apply(ctx) {
           return
         }
         if (method === 'uncommitted') { writeOk(res, await getUncommitted(cwd)); return }
+        if (method === 'initGitFlow') { writeOk(res, await initGitFlow(cwd)); return }
         if (method === 'pickDirectory') {
           const cap = ctx.directoryPicker?.capability?.()
           if (cap?.kind === 'native') {

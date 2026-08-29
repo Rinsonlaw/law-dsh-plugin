@@ -419,3 +419,10 @@ export async function getUncommitted(cwd) {
   const diff = await runGit(root, ['diff', 'HEAD', '--no-color', '--no-ext-diff']).catch(() => '')
   return { files, diff, dirty: st.dirty }
 }
+
+/** 非交互初始化 git flow（`git flow init -d`，自动识别 main 作为生产分支）。 */
+export async function initGitFlow(cwd) {
+  const root = await repoRoot(cwd)
+  const out = await runGit(root, ['flow', 'init', '-d'])
+  return { output: out.trim() }
+}

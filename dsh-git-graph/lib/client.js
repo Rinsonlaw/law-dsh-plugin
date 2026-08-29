@@ -620,6 +620,15 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
         }
       }, [sessionId, path, load])
 
+      const initFlow = useCallback(async () => {
+        try {
+          await api('initGitFlow', { sessionId, cwd: path || undefined })
+          setToast({ type: 'ok', text: 'Git Flow 初始化成功' })
+        } catch (error) {
+          setToast({ type: 'err', text: '初始化 Git Flow 失败：' + (error?.message ?? error) })
+        }
+      }, [sessionId, path])
+
       const statusNote = async () => {
         try {
           const st = await api('status', { sessionId, cwd: path || undefined })
@@ -890,6 +899,9 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
             h('button', { className: 'gg-btn primary gg-icon', 'aria-label': '刷新', onClick: () => load(path) },
               h(IconRefreshOutline16, { size: 16 }),
             ),
+          ),
+          h(Tooltip, { label: '初始化 Git Flow 分支模型', side: 'bottom', delayMs: 400 },
+            h('button', { className: 'gg-btn', onClick: initFlow }, 'Git Flow'),
           ),
         ),
         h('div', { className: 'gg-body' },
