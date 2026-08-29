@@ -46,7 +46,7 @@ window.__ModuleLoader__.load({
       '.gg-graph-scroll{min-width:max-content}',
       '.gg-count-line{flex:none;display:flex;align-items:center;padding:0 12px 0 0;height:28px;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b94a7);border-bottom:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.06));position:sticky;top:0;background:var(--dsw-alias-bg-base,#0f1115);z-index:1}',
       '.gg-count-text{flex:1;display:flex;align-items:center;padding:0 12px 0 32px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
-      '.gg-flow-badge{flex:none;display:inline-flex;align-items:center;padding:0 10px 0 8px;font-size:10px;font-weight:600;color:#fff;align-self:stretch;clip-path:polygon(0 0,calc(100% - 7px) 0,100% 50%,calc(100% - 7px) 100%,0 100%)}',
+      '.gg-flow-badge{flex:none;display:inline-flex;align-items:center;padding:0 16px 0 8px;font-size:10px;font-weight:600;color:#fff;align-self:stretch;clip-path:polygon(0 0,calc(100% - 7px) 0,100% 50%,calc(100% - 7px) 100%,0 100%)}',
       '.gg-flow-badge.on{background:#22c55e}',
       '.gg-flow-badge.off{background:#6b7280}',
       '.gg-count-line.pushing{color:var(--dsw-alias-state-business-primary,#4c8dff);font-weight:600}',
@@ -603,13 +603,14 @@ window.__ModuleLoader__.load({
             state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length > 0 && h('div', { className: 'gg-count-line' + (pushing || refreshing ? ' pushing' : '') },
               h('span', { className: 'gg-flow-badge ' + (state.data.gitFlow ? 'on' : 'off') },
                 state.data.gitFlow ? 'Git Flow 已初始化' : 'Git Flow 未初始化'),
-              pushing
-                ? '推送中…'
-                : (refreshing
-                  ? '正在刷新…'
-                  : (filteredCommits.length === state.data.commits.length
-                    ? `${state.data.commits.length} commits`
-                    : `匹配 ${filteredCommits.length} / ${state.data.commits.length} commits`)),
+              h('span', { className: 'gg-count-text' },
+                pushing
+                  ? '推送中…'
+                  : (refreshing
+                    ? '正在刷新…'
+                    : (filteredCommits.length === state.data.commits.length
+                      ? `${state.data.commits.length} commits`
+                      : `匹配 ${filteredCommits.length} / ${state.data.commits.length} commits`))),
             ),
             state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length > 0 && h('div', {
               className: 'gg-graph-scroll',
