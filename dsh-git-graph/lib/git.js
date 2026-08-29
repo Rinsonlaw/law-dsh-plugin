@@ -155,7 +155,13 @@ export async function getGraph(cwd, maxCount = 300) {
     const st = await runGit(root, ['status', '--porcelain'])
     dirty = st.split('\n').filter(l => l.trim() !== '').length
   } catch { /* ignore */ }
-  return { isRepo: true, root, branch, commits, refs, dirty }
+  // 是否已初始化 git flow（配置了 gitflow.branch.master）。
+  let gitFlow = false
+  try {
+    const gf = await runGit(root, ['config', '--get', 'gitflow.branch.master'])
+    gitFlow = gf.trim() !== ''
+  } catch { /* ignore */ }
+  return { isRepo: true, root, branch, commits, refs, dirty, gitFlow }
 }
 
 /**

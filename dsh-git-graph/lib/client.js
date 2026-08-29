@@ -359,7 +359,10 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
       '.gg-graph-col{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:auto;border-right:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.08))}',
       '.gg-detail{flex:1 1 40%;min-width:280px;max-width:46%;display:flex;flex-direction:column;min-height:0;overflow:auto;padding:12px 14px}',
       '.gg-graph-scroll{min-width:max-content}',
-      '.gg-count-line{flex:none;padding:4px 12px;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b94a7);border-bottom:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.06));position:sticky;top:0;background:var(--dsw-alias-bg-base,#0f1115);z-index:1}',
+      '.gg-count-line{flex:none;display:flex;align-items:center;gap:8px;padding:4px 12px;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b94a7);border-bottom:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.06));position:sticky;top:0;background:var(--dsw-alias-bg-base,#0f1115);z-index:1}',
+      '.gg-flow-badge{flex:none;display:inline-flex;align-items:center;padding:0 8px;border-radius:999px;font-size:10px;font-weight:600;line-height:16px;color:#fff}',
+      '.gg-flow-badge.on{background:#22c55e}',
+      '.gg-flow-badge.off{background:#6b7280}',
       '.gg-count-line.pushing{color:var(--dsw-alias-state-business-primary,#4c8dff);font-weight:600}',
       '.gg-btn:disabled{opacity:.5;cursor:default}',
       '.gg-slice{flex:none;display:block;position:static;width:auto;height:auto}',
@@ -624,10 +627,11 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
         try {
           await api('initGitFlow', { sessionId, cwd: path || undefined })
           setToast({ type: 'ok', text: 'Git Flow 初始化成功' })
+          load(path)
         } catch (error) {
           setToast({ type: 'err', text: '初始化 Git Flow 失败：' + (error?.message ?? error) })
         }
-      }, [sessionId, path])
+      }, [sessionId, path, load])
 
       const statusNote = async () => {
         try {
@@ -911,6 +915,8 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
             state.status === 'ready' && state.data && !state.data.isRepo && h('div', { className: 'gg-status' }, 'Not a git repository. Enter a repository path above.'),
             state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length === 0 && h('div', { className: 'gg-status' }, 'No commits yet.'),
             state.status === 'ready' && state.data && state.data.isRepo && state.data.commits.length > 0 && h('div', { className: 'gg-count-line' + (pushing || refreshing ? ' pushing' : '') },
+              h('span', { className: 'gg-flow-badge ' + (state.data.gitFlow ? 'on' : 'off') },
+                state.data.gitFlow ? 'Git Flow 已初始化' : 'Git Flow 未初始化'),
               pushing
                 ? '推送中…'
                 : (refreshing
