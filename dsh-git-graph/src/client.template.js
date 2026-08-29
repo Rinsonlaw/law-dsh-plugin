@@ -541,7 +541,7 @@ window.__ModuleLoader__.load({
           }),
           h('input', {
             className: 'gg-input gg-search', value: query,
-            spellCheck: false, placeholder: '搜索提交 / hash / 作者', title: '搜索',
+            spellCheck: false, placeholder: '搜索提交 / hash / 作者 / tag', title: '搜索',
             onChange: e => setQuery(e.target.value),
           }),
           h('select', {
