@@ -919,7 +919,7 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
                 onClick: () => { if (!state.data.gitFlow) initFlow() },
                 title: state.data.gitFlow ? 'Git Flow 已初始化' : '点击初始化 Git Flow',
               },
-                state.data.gitFlow ? 'Git Flow 已初始化' : 'Git Flow 未初始化'),
+                state.data.gitFlow ? 'Git Flow 已初始化' : '进行 Git Flow 初始化'),
               h('span', { className: 'gg-count-text' },
                 pushing
                   ? '推送中…'
