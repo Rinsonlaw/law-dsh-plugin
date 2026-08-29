@@ -250,6 +250,7 @@ index 1234567..89abcde 100644
       return (c.subject || '').toLowerCase().includes(q)
         || (c.hash || '').toLowerCase().includes(q)
         || (c.author || '').toLowerCase().includes(q)
+        || (c.refs || []).some(r => r.toLowerCase().includes(q))
     })
   }
 

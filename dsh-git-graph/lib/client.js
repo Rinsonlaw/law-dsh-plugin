@@ -803,6 +803,7 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
             || (c.short || '').toLowerCase().includes(q)
             || (c.author || '').toLowerCase().includes(q)
             || (c.authorEmail || '').toLowerCase().includes(q)
+            || (c.refs || []).some(r => r.toLowerCase().includes(q))
         })
       }, [state.data, query, authorFilter])
 
