@@ -364,6 +364,7 @@ function graphHtml(rows, maxCol, rowOf, colorOf, selectedHash, dirty = 0) {
       '.gg-flow-badge{flex:none;display:inline-flex;align-items:center;padding:0 12px 0 8px;font-size:10px;font-weight:600;color:#fff;align-self:stretch;border:none;cursor:pointer;clip-path:polygon(0 0,calc(100% - 7px) 0,100% 50%,calc(100% - 7px) 100%,0 100%)}',
       '.gg-flow-badge.on{background:#22c55e;cursor:default}',
       '.gg-flow-badge.off{background:#6b7280}',
+      '.gg-flow-badge.off:hover{background:#8a93a3}',
       '.gg-count-line.pushing{color:var(--dsw-alias-state-business-primary,#4c8dff);font-weight:600}',
       '.gg-btn:disabled{opacity:.5;cursor:default}',
       '.gg-slice{flex:none;display:block;position:static;width:auto;height:auto}',
